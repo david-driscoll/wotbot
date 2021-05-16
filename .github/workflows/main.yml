@@ -27,7 +27,7 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           file: ./wotbot/Dockerfile
-          context: ./tobot
+          context: ./wotbot
           push: true
           tags: daviddriscoll/wotbot:latest
       -
