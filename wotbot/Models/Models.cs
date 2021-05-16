@@ -1,3 +1,5 @@
+using System;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace wotbot.Models
@@ -7,11 +9,25 @@ namespace wotbot.Models
         [property: JsonPropertyName("loot")] string ItemLink,
         [property: JsonPropertyName("deletes")] string? DeletesIndex,
         [property: JsonPropertyName("deletedby")] string? DeletedBy,
-        long Date,
+        [property: JsonConverter(typeof(DateSecondsToDateTimeOffsetJsonConverter))]
+        DateTimeOffset Date,
         string Index,
         long Cost,
         string Player
     );
+
+    class DateSecondsToDateTimeOffsetJsonConverter : JsonConverter<DateTimeOffset> {
+        public override DateTimeOffset Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var l = JsonSerializer.Deserialize<long>(ref reader, options);
+            return DateTimeOffset.FromUnixTimeSeconds(l);
+        }
+
+        public override void Write(Utf8JsonWriter writer, DateTimeOffset value, JsonSerializerOptions options)
+        {
+            JsonSerializer.Serialize(writer, value.ToUnixTimeSeconds(), options);
+        }
+    }
 
     public record PlayerProfile(
         [property: JsonPropertyName("previous_dkp")] long PreviousPoints,
@@ -31,7 +47,15 @@ namespace wotbot.Models
         string Player,
         string Index,
         [property: JsonPropertyName("dkp")] long Points,
-        long Date,
+        [property: JsonConverter(typeof(DateSecondsToDateTimeOffsetJsonConverter))]
+        DateTimeOffset Date,
         string Reason
     );
+
+    public sealed record TeamRecord(string Server, string Faction, string Guild, string Index, string Name)
+    {
+        public string TeamId { get; } = $"{ Server}-{Faction}-{Guild}-{Index}";
+        public override int GetHashCode() => TeamId.GetHashCode();
+        public bool Equals(TeamRecord? other) => TeamId == other?.TeamId;
+    }
 }

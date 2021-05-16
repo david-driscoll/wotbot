@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Reactive.Linq;
+using System.Reactive.Threading.Tasks;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Storage.Blobs.Models;
@@ -32,11 +34,14 @@ namespace wotbot
         private readonly BlockingCollection<VariableQueueItem> _variablesQueue;
 
         record AttachmentQueueItem(MessageCreateEventArgs Args, DiscordAttachment discordAttachment, DiscordMessage Response);
-        record VariableQueueItem(string ContainerName, string BlobPath) {
+
+        record VariableQueueItem(string ContainerName, string BlobPath)
+        {
             public DiscordMessage? Response { get; init; }
         }
 
-        public SavedVariablesWorker(DiscordClient discordClient, IOptions<DiscordOptions> options, ILogger<SavedVariablesWorker> logger, IHttpClientFactory httpClientFactory, IBlobContainerClientFactory containerClientFactory, IExecuteScoped<IMediator> executeScoped)
+        public SavedVariablesWorker(DiscordClient discordClient, IOptions<DiscordOptions> options, ILogger<SavedVariablesWorker> logger, IHttpClientFactory httpClientFactory,
+            IBlobContainerClientFactory containerClientFactory, IExecuteScoped<IMediator> executeScoped)
         {
             _discordClient = discordClient;
             _options = options;
@@ -48,6 +53,7 @@ namespace wotbot
             _variablesQueue = new BlockingCollection<VariableQueueItem>();
             _attachmentQueue = new BlockingCollection<AttachmentQueueItem>();
         }
+
         protected override Task ExecuteAsync(CancellationToken stoppingToken)
         {
             Task.Factory.StartNew(() => IngestFiles(stoppingToken), stoppingToken);
@@ -83,7 +89,8 @@ namespace wotbot
                 var documentResponse = await httpClient.GetStreamAsync(attachment.Url, cancellationToken);
                 var containerClient = _containerClientFactory.CreateClient(Constants.SavedVariablesStaging);
                 await containerClient.CreateIfNotExistsAsync(PublicAccessType.None, cancellationToken: cancellationToken);
-                var path = $"{args.Guild.Id}/{attachment.CreationTimestamp:yyyy-MM-dd}/{args.Author.Username}/{args.Message.Id}-{attachment.Id}-{Path.GetFileName(attachment.FileName)}";
+                var path =
+                    $"{args.Guild.Id}/{attachment.CreationTimestamp:yyyy-MM-dd}/{args.Author.Username}/{args.Message.Id}-{attachment.Id}-{Path.GetFileName(attachment.FileName)}";
                 await containerClient.UploadBlobAsync(
                     $"{args.Guild.Id}/{attachment.CreationTimestamp:yyyy-MM-dd}/{args.Author.Username}/{args.Message.Id}-{attachment.Id}-{Path.GetFileName(attachment.FileName)}",
                     documentResponse,
@@ -101,10 +108,28 @@ namespace wotbot
                 {
                     var response = await _executeScoped.Invoke(x => x.Send(new ExtractDataFromSavedVariables.Request(data.ContainerName, data.BlobPath), cancellationToken));
                     _logger.LogInformation("Ingest {@Data}", response);
+
+                    await response.SelectMany(d => new[]
+                        {
+                            Observable.FromAsync(ct => _executeScoped.Invoke(x => x.Send(new UploadPlayerProfiles.Request(d.Key, d.Value.PlayerProfiles), ct))),
+                            Observable.FromAsync(ct => _executeScoped.Invoke(x => x.Send(new UploadAwardedPoints.Request(d.Key, d.Value.AwardedPoints), ct))),
+                            Observable.FromAsync(ct => _executeScoped.Invoke(x => x.Send(new UploadAwardedLoot.Request(d.Key, d.Value.AwardedLoot), ct)))
+                        })
+                        .ToObservable()
+                        .Merge()
+                        .Merge(Observable.FromAsync(ct => _executeScoped.Invoke((x) => x.Send(new UploadTeams.Request(response.Keys.ToImmutableArray()), ct))))
+                        .ToTask(cancellationToken);
+                    _logger.LogInformation("Finished Ingest {@Data}", response);
                 }
                 catch (Exception e)
                 {
                     _logger.LogError(e, "Error ingesting file {ContainerName}{FilePath}", data.ContainerName, data.BlobPath);
+                    if (data is {Response: { } r})
+                    {
+                        await new DiscordMessageBuilder()
+                            .WithContent($"Error ingesting file {e.Message}")
+                            .ModifyAsync(r);
+                    }
                 }
             }
         }

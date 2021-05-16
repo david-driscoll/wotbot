@@ -22,7 +22,7 @@ namespace wotbot.Operations
         public record Request(
             string StorageContainerName,
             string BlobPath
-        ) : IRequest<IImmutableDictionary<string, Response>>
+        ) : IRequest<IImmutableDictionary<TeamRecord, Response>>
         {
             public string DatabaseTableName { get; init; } = "CommDKP_DB";
             public string LootTableName { get; init; } = "CommDKP_Loot";
@@ -36,10 +36,16 @@ namespace wotbot.Operations
         {
             public RequestValidator()
             {
+                RuleFor(z => z.StorageContainerName).NotNull().NotEmpty();
+                RuleFor(z => z.BlobPath).NotNull().NotEmpty();
+                RuleFor(z => z.DatabaseTableName).NotNull().NotEmpty();
+                RuleFor(z => z.LootTableName).NotNull().NotEmpty();
+                RuleFor(z => z.ProfileTableName).NotNull().NotEmpty();
+                RuleFor(z => z.HistoryTableName).NotNull().NotEmpty();
             }
         }
 
-        class Handler : IRequestHandler<Request, IImmutableDictionary<string, Response>>
+        class Handler : IRequestHandler<Request, IImmutableDictionary<TeamRecord, Response>>
         {
             private readonly IBlobContainerClientFactory _clientFactory;
 
@@ -48,7 +54,7 @@ namespace wotbot.Operations
                 _clientFactory = clientFactory;
             }
 
-            public async Task<IImmutableDictionary<string, Response>> Handle(Request request, CancellationToken cancellationToken)
+            public async Task<IImmutableDictionary<TeamRecord, Response>> Handle(Request request, CancellationToken cancellationToken)
             {
                 using var lua = new Lua();
                 var blobClient = _clientFactory.CreateClient(request.StorageContainerName).GetBlobClient(request.BlobPath);
@@ -59,34 +65,35 @@ namespace wotbot.Operations
                 }
 
                 using var streamReader = new StreamReader(await blobClient.OpenReadAsync(new BlobOpenReadOptions(false), cancellationToken));
-                lua.DoString(await streamReader.ReadToEndAsync());
+                var variablesString = await streamReader.ReadToEndAsync();
+                lua.DoString(variablesString);
 
-                var teams = GetAllTeams(request, lua);
+                var teams = GetAllTeams(request, lua).ToImmutableHashSet();
 
-                var result = teams.ToImmutableDictionary(z => z.Key.ToTeamId(), z => new Response(ImmutableArray<PlayerProfile>.Empty, ImmutableArray<AwardedLoot>.Empty, ImmutableArray<AwardedPoints>.Empty)).ToBuilder();
+                var result = teams.ToImmutableDictionary(z => z,
+                    z => new Response(ImmutableArray<PlayerProfile>.Empty, ImmutableArray<AwardedLoot>.Empty, ImmutableArray<AwardedPoints>.Empty)).ToBuilder();
                 foreach (var (team, profiles) in ExtractProfiles(request, lua, teams))
                 {
-                    var teamId = team.ToTeamId();
-                    if (!result.TryGetValue(teamId, out var response)) continue;
-                    result[teamId] = response with {PlayerProfiles = profiles.ToImmutableArray() };
+                    if (!result.TryGetValue(team, out var response)) continue;
+                    result[team] = response with {PlayerProfiles = profiles.ToImmutableArray()};
                 }
+
                 foreach (var (team, loot) in ExtractAwardedLoot(request, lua, teams))
                 {
-                    var teamId = team.ToTeamId();
-                    if (!result.TryGetValue(teamId, out var response)) continue;
-                    result[teamId] = response with {AwardedLoot = loot.ToImmutableArray() };
+                    if (!result.TryGetValue(team, out var response)) continue;
+                    result[team] = response with {AwardedLoot = loot.ToImmutableArray()};
                 }
+
                 foreach (var (team, history) in ExtractRawHistory(request, lua, teams))
                 {
-                    var teamId = team.ToTeamId();
-                    if (!result.TryGetValue(teamId, out var response)) continue;
-                    result[teamId] = response with {AwardedPoints = history.ToImmutableArray() };
+                    if (!result.TryGetValue(team, out var response)) continue;
+                    result[team] = response with {AwardedPoints = history.ToImmutableArray()};
                 }
 
                 return result.ToImmutable();
             }
 
-            private static IEnumerable<(TeamRecord team, IEnumerable<AwardedPoints> awardedPoints)> ExtractRawHistory(Request request, Lua lua, Dictionary<TeamLookup, string> teams)
+            private static IEnumerable<(TeamRecord team, IEnumerable<AwardedPoints> awardedPoints)> ExtractRawHistory(Request request, Lua lua, ImmutableHashSet<TeamRecord> teams)
             {
                 if (lua.GetObjectFromPath(request.HistoryTableName) is not LuaTable historyTable) throw new Exception("Table not found");
                 foreach (var (team, data) in ResolveTeamBasedData<IEnumerable<RawHistoryRecord>>(historyTable, teams))
@@ -95,29 +102,29 @@ namespace wotbot.Operations
                 }
             }
 
-            private static IEnumerable<(TeamRecord team, IEnumerable<AwardedLoot> awarededLoot)> ExtractAwardedLoot(Request request, Lua lua, Dictionary<TeamLookup, string> teams)
+            private static IEnumerable<(TeamRecord team, IEnumerable<AwardedLoot> awarededLoot)> ExtractAwardedLoot(Request request, Lua lua, ImmutableHashSet<TeamRecord> teams)
             {
                 if (lua.GetObjectFromPath(request.LootTableName) is not LuaTable lootTable) throw new Exception("Table not found");
 
                 return ResolveTeamBasedData<IEnumerable<AwardedLoot>>(lootTable, teams);
             }
 
-            private static IEnumerable<(TeamRecord team, IEnumerable<PlayerProfile> profiles)> ExtractProfiles(Request request, Lua lua, Dictionary<TeamLookup, string> teams)
+            private static IEnumerable<(TeamRecord team, IEnumerable<PlayerProfile> profiles)> ExtractProfiles(Request request, Lua lua, ImmutableHashSet<TeamRecord> teams)
             {
                 if (lua.GetObjectFromPath(request.ProfileTableName) is not LuaTable dkpTable) throw new Exception("Table not found");
 
                 return ResolveTeamBasedData<IEnumerable<PlayerProfile>>(dkpTable, teams);
             }
 
-            private static Dictionary<TeamLookup, string> GetAllTeams(Request request, Lua lua)
+            private static IEnumerable<TeamRecord> GetAllTeams(Request request, Lua lua)
             {
                 if (lua.GetObjectFromPath(request.DatabaseTableName) is not LuaTable dbTable) throw new Exception("Table not found");
 
-                var teams = new Dictionary<TeamLookup, string>();
+                var teams = new Dictionary<TeamRecord, string>();
                 foreach (var key in dbTable.GetValidKeys())
                 {
                     if (dbTable[key] is not LuaTable guilds) continue;
-                    foreach (var guild in dbTable.GetValidKeys())
+                    foreach (var guild in guilds.GetValidKeys())
                     {
                         if (guilds[guild] is not LuaTable data) continue;
                         if (data.LuaTableToObject() is not IDictionary<object, object> dataDic) continue;
@@ -127,15 +134,14 @@ namespace wotbot.Operations
                         foreach (var team in teamData)
                         {
                             if (team.Value is not IDictionary<object, object> td) continue;
-                            teams.Add(new(key.ToString()!, guild.ToString()!, team.Key.ToString()!), td["name"].ToString()!);
+                            var teamSplit = key.ToString()!.Split('-', StringSplitOptions.RemoveEmptyEntries);
+                            yield return new(teamSplit[0], teamSplit[1], guild.ToString()!, team.Key.ToString()!, td["name"].ToString()!);
                         }
                     }
                 }
-
-                return teams;
             }
 
-            private static IEnumerable<(TeamRecord, T)> ResolveTeamBasedData<T>(LuaTable table, IDictionary<TeamLookup, string> teamNames)
+            private static IEnumerable<(TeamRecord, T)> ResolveTeamBasedData<T>(LuaTable table, ImmutableHashSet<TeamRecord> teams)
             {
                 foreach (var key in table.GetValidKeys())
                 {
@@ -151,11 +157,8 @@ namespace wotbot.Operations
                             // and always have a number
                             if (item.Key is string s && !long.TryParse(s, out _)) throw new Exception("unexpected record found");
                             var lookup = new TeamLookup(key.ToString()!, guild.ToString()!, item.Key.ToString()!);
-                            if (!teamNames.TryGetValue(lookup, out var teamName))
-                            {
-                                teamName = $"UNKNOWN {lookup.Index}";
-                            }
-                            var teamKey = new TeamRecord(lookup, teamName);
+                            var team = teams.First(z => z.TeamId == lookup.ToTeamId());
+
                             if (item.Value is not T v)
                             {
                                 // could be an object or an array we don't really know, just drop it?
@@ -164,14 +167,14 @@ namespace wotbot.Operations
                                     continue;
                                 }
 
-                                yield return new(teamKey, JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(item.Value), new JsonSerializerOptions()
+                                yield return new(team, JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(item.Value), new JsonSerializerOptions()
                                 {
                                     PropertyNameCaseInsensitive = true
                                 })!);
                             }
                             else
                             {
-                                yield return new(teamKey, v);
+                                yield return new(team, v);
                             }
                         }
                     }
@@ -183,13 +186,12 @@ namespace wotbot.Operations
                 public string ToTeamId() => $"{Server}-{Guild}-{Index}";
             }
 
-            record TeamRecord(TeamLookup Lookup, string Name) : TeamLookup(Lookup.Server, Lookup.Guild, Lookup.Index);
-
             record RawHistoryRecord(
                 string Players,
                 string Index,
                 [property: JsonPropertyName("dkp")] long Points,
-                long Date,
+                [property: JsonConverter(typeof(DateSecondsToDateTimeOffsetJsonConverter))]
+                DateTimeOffset Date,
                 string Reason
             )
             {

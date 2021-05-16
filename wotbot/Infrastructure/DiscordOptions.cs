@@ -10,6 +10,7 @@ namespace wotbot.Infrastructure
         public string CommandPrefix { get; init; } = null!;
 
         public HashSet<string> SupportedGuilds { get; init; } = new ();
+        public HashSet<string> SupportedTeams { get; init; } = new ();
         public HashSet<string> SavedVariablesChannels { get; init; } = new ();
         public HashSet<string> OutputChannels { get; init; } = new ();
     }
