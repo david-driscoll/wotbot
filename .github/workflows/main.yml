@@ -27,7 +27,6 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           file: wotbot/Dockerfile
-          context: ./api
           context: ./wotbot
           push: true
           tags: user/app:latest
