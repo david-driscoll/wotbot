@@ -26,10 +26,10 @@ jobs:
         id: docker_build
         uses: docker/build-push-action@v2
         with:
-          file: wotbot/Dockerfile
-          context: .
+          file: ./wotbot/Dockerfile
+          context: ./tobot
           push: true
-          tags: user/app:latest
+          tags: daviddriscoll/wotbot:latest
       -
         name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
