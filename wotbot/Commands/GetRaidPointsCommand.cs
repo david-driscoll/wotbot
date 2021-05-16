@@ -1,8 +1,10 @@
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Attributes;
 using DSharpPlus.Entities;
+using Humanizer;
 using MediatR;
 using Microsoft.Extensions.Options;
 using Rocket.Surgery.DependencyInjection;
@@ -33,20 +35,33 @@ namespace wotbot.Commands
                 var profile = await _executeScoped.Invoke((x, ct) => x.Send(new GetRaidPoints.Request(team, ctx.User.Username), ct));
 
                 var msg = new DiscordMessageBuilder()
-                    .WithContent($"{ctx.User.Mention} you have {profile.CurrentPoints} points!")
+                    .WithEmbed(CreateProfileEmbed(profile)
+                        .WithDescription($"{ctx.User.Mention} you have {profile.CurrentPoints} points!")
+                    )
                     .WithAllowedMention(new UserMention(ctx.User));
                 await ctx.RespondAsync(msg);
             }
             catch (NotFoundException)
             {
                 var msg = new DiscordMessageBuilder()
-                    .WithContent($"{ctx.User.Mention}, I can't find any points for you! Maybe try !rp <character>.")
-                    .WithAllowedMention(new UserMention(ctx.User));
+                    .WithEmbed(new DiscordEmbedBuilder()
+                        // .WithTitle("WOT BOT")
+                        .WithDescription($"{ctx.User.Mention}, I can't find any points for you! Maybe try !rp <character>.")
+                        .WithColor(DiscordColor.Gray)
+                        .WithThumbnail($"https://wotbot.azurewebsites.net/question.gif")
+                    ).WithAllowedMention(new UserMention(ctx.User));
                 await ctx.RespondAsync(msg);
             }
-            catch
+            catch (Exception e)
             {
-                await ctx.RespondAsync($"Oh boy, something went really wrong!!");
+                var msg = new DiscordMessageBuilder()
+                    .WithEmbed(new DiscordEmbedBuilder()
+                        // .WithTitle("WOT BOT")
+                        .WithDescription($"Oh boy, something went really wrong!!")
+                        .WithFooter(e.Message)
+                        .WithColor(DiscordColor.Red)
+                    );
+                await ctx.RespondAsync(msg);
             }
         }
 
@@ -58,24 +73,46 @@ namespace wotbot.Commands
                 var team = _options.Value.SupportedTeams.Single();
                 var profile = await _executeScoped.Invoke((x, ct) => x.Send(new GetRaidPoints.Request(team, name), ct));
                 var msg = new DiscordMessageBuilder()
-
-                    .WithEmbed(new DiscordEmbedBuilder()
-                        .WithTitle("WOT BOT")
-                        .WithDescription($"_{profile.Player}_ has **{profile.CurrentPoints}** points!")
-                        .WithColor(DiscordColor.Rose)
-                        .WithFooter("Hello footer")
-                        .WithThumbnail("http://www.dustball.com/icons/icons/accept.png")
+                    .WithEmbed(
+                        CreateProfileEmbed(profile)
+                            .WithDescription($"_{profile.Player}_ has **{profile.CurrentPoints}** points!")
                     );
                 await ctx.RespondAsync(msg);
             }
             catch (NotFoundException)
             {
-                await ctx.RespondAsync($"I'm sorry I could not find any points for {name}!");
+                var msg = new DiscordMessageBuilder()
+                    .WithEmbed(new DiscordEmbedBuilder()
+                        // .WithTitle("WOT BOT")
+                        .WithDescription($"I'm sorry I could not find any points for _{name}_!")
+                        .WithColor(DiscordColor.Gray)
+                        .WithThumbnail($"https://wotbot.azurewebsites.net/question.gif")
+                    );
+                await ctx.RespondAsync(msg);
             }
-            catch
+            catch (Exception e)
             {
-                await ctx.RespondAsync($"Oh boy, something went really wrong!!");
+                var msg = new DiscordMessageBuilder()
+                    .WithEmbed(new DiscordEmbedBuilder()
+                        // .WithTitle("WOT BOT")
+                        .WithDescription($"Oh boy, something went really wrong!!")
+                        .WithFooter(e.Message)
+                        .WithColor(DiscordColor.Red)
+                    );
+                await ctx.RespondAsync(msg);
             }
+        }
+
+        private DiscordEmbedBuilder CreateProfileEmbed(PlayerProfile profile)
+        {
+            return new DiscordEmbedBuilder()
+                    // .WithTitle("WOT BOT")
+                    .AddField("Rank", profile.RankName, false)
+                    .AddField("Lifetime", profile.LifetimePoints.ToString("D"), true)
+                    .AddField("Spent", profile.LifetimeSpent.ToString("D"), true)
+                    .WithColor(profile.GetClassColor())
+                    .WithFooter(profile.GetFullSpec(), iconUrl: $"https://wotbot.azurewebsites.net/spec/{profile.GetClassName().Dasherize().ToLowerInvariant()}/{profile.GetSpecName().Dasherize().ToLowerInvariant()}.png")
+                    .WithThumbnail($"https://wotbot.azurewebsites.net/anime/{profile.GetClassName().Dasherize().ToLowerInvariant()}.png");
         }
     }
 }

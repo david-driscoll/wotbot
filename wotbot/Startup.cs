@@ -27,10 +27,17 @@ namespace wotbot
             }
 
             app.UseStaticFiles();
-
-            app.UseRouting();
-
-            app.UseEndpoints(endpoints => { endpoints.MapGet("/", async context => { await context.Response.WriteAsync("Hello World!"); }); });
+            app.UseDefaultFiles(new DefaultFilesOptions()
+            {
+                RequestPath = "/question.gif"
+            });
+            app.Run(z =>
+            {
+                 z.Response.Redirect("/question.gif", true, true);
+                 return Task.CompletedTask;
+            });
+            //
+            // app.UseEndpoints(endpoints => { endpoints.MapGet("/", async context => { await context.Response.WriteAsync("Hello World!"); }); });
         }
     }
 }

@@ -13,6 +13,7 @@
         <PackageReference Include="DSharpPlus.CommandsNext" Version="4.0.1" />
         <PackageReference Include="DSharpPlus.Interactivity" Version="4.0.1" />
         <PackageReference Include="DSharpPlus.Rest" Version="4.0.1" />
+        <PackageReference Include="Humanizer.Core" Version="2.10.1" />
         <PackageReference Include="Microsoft.Extensions.Http" Version="5.0.0" />
         <PackageReference Include="NLua" Version="1.5.9" />
         <PackageReference Include="Rocket.Surgery.Hosting.DryIoc" Version="0.2.0" />
