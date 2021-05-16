@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
@@ -14,7 +15,7 @@ namespace wotbot.Operations
 {
     public static class UploadAwardedPoints
     {
-        public record Request(TeamRecord Team, ImmutableArray<AwardedPoints> AwardedPoints) : IRequest;
+        public record Request(TeamRecord Team, ImmutableArray<AwardedPoints> AwardedPoints) : IRequest<ImmutableArray<AwardedPoints>>;
 
         class RequestValidator : AbstractValidator<Request>
         {
@@ -35,7 +36,7 @@ namespace wotbot.Operations
             }
         }
 
-        class Handler : IRequestHandler<Request>
+        class Handler : IRequestHandler<Request, ImmutableArray<AwardedPoints>>
         {
             private readonly ITableClientFactory _tableClientFactory;
             private readonly IMapper _mapper;
@@ -46,7 +47,7 @@ namespace wotbot.Operations
                 _mapper = mapper;
             }
 
-            public async Task<Unit> Handle(Request request, CancellationToken cancellationToken)
+            public async Task<ImmutableArray<AwardedPoints>> Handle(Request request, CancellationToken cancellationToken)
             {
                 var tableClient = _tableClientFactory.CreateClient(Constants.PointsTable);
                 await tableClient.CreateIfNotExistsAsync(cancellationToken);
@@ -68,6 +69,8 @@ namespace wotbot.Operations
                         .QueryAsync<AwardedPointsTableEntity>(entity => entity.PartitionKey == request.Team.TeamId && entity.Date >= lowestDate && entity.Date <= hightestDate)
                         .ToArrayAsync(cancellationToken);
 
+                    var newItems = points.Except(allItems).ToArray();
+
                     foreach (var buffer in points
                         .Except(allItems)
                         .Select(profile => new TableTransactionAction(TableTransactionActionType.Add, profile))
@@ -77,9 +80,11 @@ namespace wotbot.Operations
                         if (!buffer.Any()) continue;
                         await tableClient.SubmitTransactionAsync(buffer, cancellationToken);
                     }
+
+                    return newItems.Select(_mapper.Map<AwardedPoints>).ToImmutableArray();
                 }
 
-                return Unit.Value;
+                return ImmutableArray<AwardedPoints>.Empty;
             }
         }
     }

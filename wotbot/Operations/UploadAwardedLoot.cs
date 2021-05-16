@@ -15,7 +15,7 @@ namespace wotbot.Operations
 {
     public static class UploadAwardedLoot
     {
-        public record Request(TeamRecord Team, ImmutableArray<AwardedLoot> AwardedLoot) : IRequest;
+        public record Request(TeamRecord Team, ImmutableArray<AwardedLoot> AwardedLoot) : IRequest<ImmutableArray<AwardedLoot>>;
 
         class RequestValidator : AbstractValidator<Request>
         {
@@ -36,7 +36,7 @@ namespace wotbot.Operations
             }
         }
 
-        class Handler : IRequestHandler<Request>
+        class Handler : IRequestHandler<Request, ImmutableArray<AwardedLoot>>
         {
             private readonly ITableClientFactory _tableClientFactory;
             private readonly IMapper _mapper;
@@ -47,7 +47,7 @@ namespace wotbot.Operations
                 _mapper = mapper;
             }
 
-            public async Task<Unit> Handle(Request request, CancellationToken cancellationToken)
+            public async Task<ImmutableArray<AwardedLoot>> Handle(Request request, CancellationToken cancellationToken)
             {
                 var tableClient = _tableClientFactory.CreateClient(Constants.LootTable);
                 await tableClient.CreateIfNotExistsAsync(cancellationToken);
@@ -69,8 +69,9 @@ namespace wotbot.Operations
                         .QueryAsync<AwardedLootTableEntity>(entity => entity.PartitionKey == request.Team.TeamId && entity.Date >= lowestDate && entity.Date <= hightestDate)
                         .ToArrayAsync(cancellationToken);
 
-                    foreach (var buffer in loot
-                        .Except(allItems)
+                    var newItems = loot.Except(allItems);
+
+                    foreach (var buffer in newItems
                         .Select(profile => new TableTransactionAction(TableTransactionActionType.Add, profile))
                         .Buffer(100)
                     )
@@ -78,9 +79,10 @@ namespace wotbot.Operations
                         if (!buffer.Any()) continue;
                         await tableClient.SubmitTransactionAsync(buffer, cancellationToken);
                     }
+                    return newItems.Select(_mapper.Map<AwardedLoot>).ToImmutableArray();
                 }
 
-                return Unit.Value;
+                return ImmutableArray<AwardedLoot>.Empty;
             }
         }
     }

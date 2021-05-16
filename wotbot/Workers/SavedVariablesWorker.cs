@@ -63,8 +63,8 @@ namespace wotbot
             {
                 _logger.LogInformation("Response from {Guild}#{Channel}", args.Guild.Name, args.Channel.Name);
                 if (
-                    !_options.Value.SupportedGuilds.Contains(args.Guild.Name)
-                    || !_options.Value.SavedVariablesChannels.Contains(args.Channel.Name)
+                    _options.Value.SupportedGuilds.Any() && !_options.Value.SupportedGuilds.Contains(args.Guild.Name)                    ||
+                    !_options.Value.SavedVariablesChannels.Contains(args.Channel.Name)
                 )
                 {
                     return;
@@ -109,26 +109,57 @@ namespace wotbot
                     var response = await _executeScoped.Invoke(x => x.Send(new ExtractDataFromSavedVariables.Request(data.ContainerName, data.BlobPath), cancellationToken));
                     _logger.LogInformation("Ingest {@Data}", response);
 
-                    await response.SelectMany(d => new[]
+                    if (data.Response is not null)
+                    {
+                        await data.Response.ModifyAsync(new DiscordMessageBuilder()
+                            .WithEmbed(new DiscordEmbedBuilder()
+                                .AddField("Status", "Processing")
+                            )
+                        );
+                    }
+
+                    // handler per team points / loot
+                    await _executeScoped.Invoke(x => x.Send(new UploadTeams.Request(response.Keys.ToImmutableArray()), cancellationToken));
+                    var results = await response.Select( d => Observable.FromAsync(async ct =>
                         {
-                            Observable.FromAsync(ct => _executeScoped.Invoke(x => x.Send(new UploadPlayerProfiles.Request(d.Key, d.Value.PlayerProfiles), ct))),
-                            Observable.FromAsync(ct => _executeScoped.Invoke(x => x.Send(new UploadAwardedPoints.Request(d.Key, d.Value.AwardedPoints), ct))),
-                            Observable.FromAsync(ct => _executeScoped.Invoke(x => x.Send(new UploadAwardedLoot.Request(d.Key, d.Value.AwardedLoot), ct)))
-                        })
+                            var playerProfileUpload = _executeScoped.Invoke(x => x.Send(new UploadPlayerProfiles.Request(d.Key, d.Value.PlayerProfiles), ct));
+                            var awardedPointsUpload = _executeScoped.Invoke(x => x.Send(new UploadAwardedPoints.Request(d.Key, d.Value.AwardedPoints), ct));
+                            var awardedLootUpload = _executeScoped.Invoke(x => x.Send(new UploadAwardedLoot.Request(d.Key, d.Value.AwardedLoot), ct));
+                            await Task.WhenAll(playerProfileUpload, awardedLootUpload, awardedPointsUpload);
+                            return (team: d.Key, newLoot: awardedLootUpload.Result, newPoints: awardedPointsUpload.Result);
+                        }))
                         .ToObservable()
                         .Merge()
-                        .Merge(Observable.FromAsync(ct => _executeScoped.Invoke((x) => x.Send(new UploadTeams.Request(response.Keys.ToImmutableArray()), ct))))
+                        .ToArray()
                         .ToTask(cancellationToken);
                     _logger.LogInformation("Finished Ingest {@Data}", response);
+
+                    if (data.Response is not null)
+                    {
+                        var totalLootRecords = results.Aggregate(0, (a, b) => b.newLoot.Length + a);
+                        var totalAwardRecords = results.Aggregate(0, (a, b) => b.newPoints.Length + a);
+                        await data.Response.ModifyAsync(new DiscordMessageBuilder()
+                            .WithEmbed(new DiscordEmbedBuilder()
+                                .AddField("Status", "Finished")
+                                .AddField("Updated Teams", response.Count.ToString(), false)
+                                .AddField("Updated Teams", response.Count.ToString(), true)
+                                .AddField("New Loot Records", totalLootRecords.ToString(), true)
+                                .AddField("New Points Records", totalAwardRecords.ToString(), true)
+                            )
+                        );
+                    }
                 }
                 catch (Exception e)
                 {
                     _logger.LogError(e, "Error ingesting file {ContainerName}{FilePath}", data.ContainerName, data.BlobPath);
                     if (data is {Response: { } r})
                     {
-                        await new DiscordMessageBuilder()
+                        await data.Response.ModifyAsync(new DiscordMessageBuilder()
                             .WithContent($"Error ingesting file {e.Message}")
-                            .ModifyAsync(r);
+                            .WithEmbed(new DiscordEmbedBuilder()
+                                .AddField("Status", "Failed")
+                            )
+                        );
                     }
                 }
             }

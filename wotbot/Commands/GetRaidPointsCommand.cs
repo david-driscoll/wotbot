@@ -6,6 +6,7 @@ using DSharpPlus.CommandsNext.Attributes;
 using DSharpPlus.Entities;
 using Humanizer;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Rocket.Surgery.DependencyInjection;
 using Rocket.Surgery.LaunchPad.Foundation;
@@ -19,11 +20,14 @@ namespace wotbot.Commands
     {
         private readonly IExecuteScoped<IMediator> _executeScoped;
         private readonly IOptions<DiscordOptions> _options;
+        private readonly ILogger<GetRaidPointsCommand> _logger;
 
-        public GetRaidPointsCommand(IExecuteScoped<IMediator> executeScoped, IOptions<DiscordOptions> options)
+        public GetRaidPointsCommand(IExecuteScoped<IMediator> executeScoped, IOptions<DiscordOptions> options, ILogger<GetRaidPointsCommand> logger)
         {
             _executeScoped = executeScoped;
             _options = options;
+            _logger = logger;
+            _logger.LogInformation("Commands are setup");
         }
 
         [Command("rp")]
