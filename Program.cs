@@ -1,12 +1,8 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyModel;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+using Rocket.Surgery.Conventions.DependencyInjection;
+using Rocket.Surgery.Hosting;
 
 namespace wotbot
 {
@@ -19,14 +15,8 @@ namespace wotbot
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
+                .UseRocketBooster(RocketBooster.ForDependencyContext(DependencyContext.Default))
+                .ConfigureRocketSurgery(c => c.UseDryIoc())
                 .ConfigureWebHostDefaults(webBuilder => { webBuilder.UseStartup<Startup>(); });
-    }
-
-    class DiscordBotService : BackgroundService
-    {
-        protected override Task ExecuteAsync(CancellationToken stoppingToken)
-        {
-            throw new NotImplementedException();
-        }
     }
 }
