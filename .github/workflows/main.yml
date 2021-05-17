@@ -5,6 +5,11 @@ on:
     branches:
       - 'master'
 
+
+defaults:
+  run:
+    working-directory: ./wotbot
+    
 jobs:
   docker:
     runs-on: ubuntu-latest
