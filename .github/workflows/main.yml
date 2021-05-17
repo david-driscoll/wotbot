@@ -29,7 +29,7 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           file: ./wotbot/Dockerfile
-          context: ./wotbot
+          context: .
           push: true
           tags: daviddriscoll/wotbot:latest
       - name: Image digest
