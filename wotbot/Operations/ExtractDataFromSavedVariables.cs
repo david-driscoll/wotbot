@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
@@ -57,6 +58,7 @@ namespace wotbot.Operations
             public async Task<IImmutableDictionary<TeamRecord, Response>> Handle(Request request, CancellationToken cancellationToken)
             {
                 using var lua = new Lua();
+                lua.State.Encoding = Encoding.UTF8;
                 var blobClient = _clientFactory.CreateClient(request.StorageContainerName).GetBlobClient(request.BlobPath);
 
                 if (!await blobClient.ExistsAsync(cancellationToken))
@@ -64,7 +66,7 @@ namespace wotbot.Operations
                     throw new NotFoundException($"Could not find blob at path {request.BlobPath}");
                 }
 
-                using var streamReader = new StreamReader(await blobClient.OpenReadAsync(new BlobOpenReadOptions(false), cancellationToken));
+                using var streamReader = new StreamReader(await blobClient.OpenReadAsync(new BlobOpenReadOptions(false), cancellationToken), Encoding.UTF8);
                 var variablesString = await streamReader.ReadToEndAsync();
                 lua.DoString(variablesString);
 
