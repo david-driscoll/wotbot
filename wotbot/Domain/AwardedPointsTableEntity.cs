@@ -1,6 +1,9 @@
 using System;
+using System.Globalization;
+using System.Linq;
 using Azure;
 using Azure.Data.Tables;
+using Rocket.Surgery.Encoding;
 
 namespace wotbot.Domain
 {
@@ -8,6 +11,7 @@ namespace wotbot.Domain
     {
         public string TeamId { get; set; } = null!;
         public string Player { get; set; } = null!;
+        public string? PlayerSafe { get; set; }
         public string Index { get; set; } = null!;
         public long Points { get; set; }
         public DateTimeOffset Date { get; set; }
@@ -21,12 +25,12 @@ namespace wotbot.Domain
 
         public override string RowKey
         {
-            get => $"{Player}:{Index}";
+            get => Base3264Encoding.ToBase32Crockford($"{Player}:{Index}");
             set
             {
-                var parts = value.Split(':', StringSplitOptions.RemoveEmptyEntries);
-                Player = parts[0];
+                var parts = Base3264Encoding.FromBase32CrockfordToString(value).Split(':', StringSplitOptions.RemoveEmptyEntries);
                 Index = parts[1];
+                PlayerSafe = parts[0];
             }
         }
     }

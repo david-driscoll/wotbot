@@ -1,10 +1,11 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.Globalization;
 using System.Reactive;
+using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using NLua;
+using DSharpPlus.Entities;
 
 // ReSharper disable once CheckNamespace
 namespace wotbot
@@ -20,49 +21,64 @@ namespace wotbot
         }
     }
 
-    public static class LuaExtensions
+    public record ItemLink(DiscordColor Color, ItemString ItemInfo, string ItemName)
     {
-        public static IEnumerable<object> GetValidKeys(this LuaTable table)
-        {
-            foreach (var key in table.Keys)
-            {
-                if (key is string s)
-                {
-                    // seed seems to be an internal state around repairing tables
-                    if (s is "__default" or "dbinfo" or "seed") continue;
-                }
-                yield return key;
+        private static readonly Regex ItemLinkRegex =
+            new(
+                @"\|c(?:[0-9a-f]{2})?(?<color>[0-9a-f]{6})\|H(?<itemString>.*)\|h(?<itemName>.*?)\|h\|r", RegexOptions.Compiled);
 
-            }
+        public static ItemLink? Parse(string itemLink)
+        {
+            var match = ItemLinkRegex.Match(itemLink);
+            if (!match.Success) return null;
+
+            var itemString = ItemString.Parse(match.Groups["itemString"].Value);
+            if (itemString is null) return null;
+
+            var color = match.Groups["color"].Value;
+            var red = byte.Parse(color[..2], NumberStyles.HexNumber);
+            var green = byte.Parse(color[2..4], NumberStyles.HexNumber);
+            var blue = byte.Parse(color[4..], NumberStyles.HexNumber);
+            return new ItemLink(
+                new DiscordColor(red, green, blue),
+                itemString,
+                match.Groups["itemName"].Value
+            );
         }
+    }
 
-        public static object LuaTableToObject(this LuaTable table)
+    public record ItemString(int ItemId, int? EnchantId, int? GemId1, int? GemId2, int? GemId3, int? GemId4, int? SuffixId, int? UniqueId, int? LinkLevel, int? SpecializationId,
+        int? UpgradeId, int? InstanceDifficultyId, int? NumBonusIds, int? BonusId1, int? BonusId2, int? UpgradeValue)
+    {
+        private static readonly Regex ItemStringRegex =
+            new(
+                @"item:(?<itemId>\d+):(?<enchantId>\d*):(?<gemId1>\d*):(?<gemId2>\d*):(?<gemId3>\d*):(?<gemId4>\d*):(?<suffixId>\d*):(?<uniqueId>\d*):(?<linkLevel>\d*):(?<specializationId>\d*):(?<upgradeId>\d*):(?<instanceDifficultyId>\d*):(?<numBonusIds>\d*):(?<bonusId1>\d*):(?<bonusId2>\d*):(?<upgradeValue>\d*):(?<unknown>\d*)"
+                , RegexOptions.Compiled);
+
+        public static ItemString? Parse(string itemLink)
         {
-            var result = new Dictionary<object, object>();
-            foreach (var key in GetValidKeys(table))
-            {
-                var value = table[key];
-                result.Add(
-                    key switch
-                    {
-                        long lkey => lkey,
-                        string skey => long.TryParse(skey, out var lkey) && lkey > 0 ? lkey : skey, // zero is not a valid array in lua (1 based everything!)
-                        _ => throw new ArgumentOutOfRangeException($"Not supported type {key.GetType().FullName}")
-                    },
-                    value switch
-                    {
-                        LuaTable t => LuaTableToObject(t),
-                        string or long or bool or double => value,
-                        _ => throw new ArgumentOutOfRangeException($"Not supported type {value.GetType().FullName}")
-                    }
-                );
-            }
-            if (result.Keys.Count > 0 && result.Keys.All(z => z is long))
-            {
-                return result.Keys.OfType<long>().OrderBy(z => z).Select(z => result[z]).ToArray();
-            }
+            var match = ItemStringRegex.Match(itemLink);
+            if (!match.Success) return null;
 
-            return result;
+            int temp;
+            return new ItemString(
+                int.Parse(match.Groups["itemId"].Value),
+                int.TryParse(match.Groups["enchantId"].Value, out temp) ? temp : null,
+                int.TryParse(match.Groups["gemId1"].Value, out temp) ? temp : null,
+                int.TryParse(match.Groups["gemId2"].Value, out temp) ? temp : null,
+                int.TryParse(match.Groups["gemId3"].Value, out temp) ? temp : null,
+                int.TryParse(match.Groups["gemId4"].Value, out temp) ? temp : null,
+                int.TryParse(match.Groups["suffixId"].Value, out temp) ? temp : null,
+                int.TryParse(match.Groups["uniqueId"].Value, out temp) ? temp : null,
+                int.TryParse(match.Groups["linkLevel"].Value, out temp) ? temp : null,
+                int.TryParse(match.Groups["specializationId"].Value, out temp) ? temp : null,
+                int.TryParse(match.Groups["upgradeId"].Value, out temp) ? temp : null,
+                int.TryParse(match.Groups["instanceDifficultyId"].Value, out temp) ? temp : null,
+                int.TryParse(match.Groups["numBonusIds"].Value, out temp) ? temp : null,
+                int.TryParse(match.Groups["bonusId1"].Value, out temp) ? temp : null,
+                int.TryParse(match.Groups["bonusId2"].Value, out temp) ? temp : null,
+                int.TryParse(match.Groups["upgradeValue"].Value, out temp) ? temp : null
+            );
         }
     }
 }

@@ -36,7 +36,7 @@ namespace wotbot.Commands
             try
             {
                 var team = _options.Value.SupportedTeams.Single();
-                var profile = await _executeScoped.Invoke((x, ct) => x.Send(new GetRaidPoints.Request(team, ctx.User.Username), ct));
+                var profile = await _executeScoped.Invoke((x, ct) => x.Send(new GetPlayerProfile.Request(team, ctx.User.Username), ct));
 
                 var msg = new DiscordMessageBuilder()
                     .WithEmbed(CreateProfileEmbed(profile)
@@ -75,7 +75,7 @@ namespace wotbot.Commands
             try
             {
                 var team = _options.Value.SupportedTeams.Single();
-                var profile = await _executeScoped.Invoke((x, ct) => x.Send(new GetRaidPoints.Request(team, name), ct));
+                var profile = await _executeScoped.Invoke((x, ct) => x.Send(new GetPlayerProfile.Request(team, name), ct));
                 var msg = new DiscordMessageBuilder()
                     .WithEmbed(
                         CreateProfileEmbed(profile)
@@ -106,6 +106,12 @@ namespace wotbot.Commands
                 await ctx.RespondAsync(msg);
             }
         }
+
+        [Command("dkp")]
+        public Task GetDkp(CommandContext ctx) => GetRaidPoints(ctx);
+
+        [Command("dkp")]
+        public Task GetDkp(CommandContext ctx, string name) => GetRaidPoints(ctx, name);
 
         private DiscordEmbedBuilder CreateProfileEmbed(PlayerProfile profile)
         {

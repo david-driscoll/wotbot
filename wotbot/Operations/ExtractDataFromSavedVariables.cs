@@ -169,7 +169,7 @@ namespace wotbot.Operations
 
                                 yield return new(team, JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(item.Value), new JsonSerializerOptions()
                                 {
-                                    PropertyNameCaseInsensitive = true
+                                    PropertyNameCaseInsensitive = true,
                                 })!);
                             }
                             else

@@ -1,6 +1,9 @@
 using System;
+using System.Globalization;
+using System.Linq;
 using Azure;
 using Azure.Data.Tables;
+using Rocket.Surgery.Encoding;
 
 namespace wotbot.Domain
 {
@@ -28,8 +31,8 @@ namespace wotbot.Domain
 
         public override string RowKey
         {
-            get => PlayerLower;
-            set => PlayerLower = value;
+            get => Base3264Encoding.ToBase32Crockford(PlayerLower);
+            set => PlayerLower = Base3264Encoding.FromBase32CrockfordToString(value);
         }
     }
 }

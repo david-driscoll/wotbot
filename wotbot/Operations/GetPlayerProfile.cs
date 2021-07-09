@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using AutoMapper;
 using FluentValidation;
 using MediatR;
+using Rocket.Surgery.Encoding;
 using Rocket.Surgery.LaunchPad.Foundation;
 using wotbot.Domain;
 using wotbot.Infrastructure;
@@ -10,7 +11,7 @@ using wotbot.Models;
 
 namespace wotbot.Operations
 {
-    public static class GetRaidPoints
+    public static class GetPlayerProfile
     {
         public record Request(string TeamId, string Name) : IRequest<PlayerProfile>;
 
@@ -37,7 +38,7 @@ namespace wotbot.Operations
                 var tableClient = _tableClientFactory.CreateClient(Constants.ProfilesTable);
                 try
                 {
-                    var entity = await tableClient.GetEntityAsync<PlayerProfileTableEntity>(request.TeamId, request.Name.ToLowerInvariant(),
+                    var entity = await tableClient.GetEntityAsync<PlayerProfileTableEntity>(request.TeamId, Base3264Encoding.ToBase32Crockford(request.Name.ToLowerInvariant()),
                         cancellationToken: cancellationToken);
                     return _mapper.Map<PlayerProfile>(entity.Value);
                 }
