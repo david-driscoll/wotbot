@@ -15,7 +15,7 @@ namespace wotbot.Domain
         public string Class { get; set; } = null!;
         public string Role { get; set; } = null!;
         public string Spec { get; set; } = null!;
-        public string RankName { get; set; } = null!;
+        // public string RankName { get; set; } = null!;
         public long Rank { get; set; }
         public string Player { get; set; } = null!;
         public string PlayerLower { get; set; } = null!;

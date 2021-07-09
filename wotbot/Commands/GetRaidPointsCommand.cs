@@ -111,7 +111,7 @@ namespace wotbot.Commands
         {
             return new DiscordEmbedBuilder()
                     // .WithTitle("WOT BOT")
-                    .AddField("Rank", profile.RankName, false)
+                    // .AddField("Rank", profile.Rank, false)
                     .AddField("Lifetime", profile.LifetimePoints.ToString("D"), true)
                     .AddField("Spent", profile.LifetimeSpent.ToString("D"), true)
                     .WithColor(profile.GetClassColor())

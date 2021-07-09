@@ -44,8 +44,8 @@ namespace wotbot.Models
         [property: JsonPropertyName("class")] string Class,
         [property: JsonPropertyName("role")] string Role,
         [property: JsonPropertyName("spec")] string Spec,
-        [property: JsonPropertyName("rankName")]
-        string RankName,
+        // [property: JsonPropertyName("rankName")]
+        // string RankName,
         long Rank,
         string Player
     )
