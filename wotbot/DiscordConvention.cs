@@ -51,6 +51,7 @@ namespace wotbot.Infrastructure
         private static void AddHostedServices(IServiceCollection services)
         {
             services.AddHostedService<DiscordBotService>();
+            services.AddHostedService<ProfessionsWorker>();
             services.AddHostedService<SavedVariablesWorker>();
         }
 

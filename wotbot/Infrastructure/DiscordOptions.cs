@@ -13,5 +13,6 @@ namespace wotbot.Infrastructure
         public HashSet<string> SupportedTeams { get; init; } = new ();
         public HashSet<string> SavedVariablesChannels { get; init; } = new ();
         public HashSet<string> OutputChannels { get; init; } = new ();
+        public HashSet<string> ProfessionChannels { get; init; } = new ();
     }
 }

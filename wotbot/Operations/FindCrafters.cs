@@ -1,29 +1,29 @@
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using FluentValidation;
 using MediatR;
-using Rocket.Surgery.Encoding;
 using Rocket.Surgery.LaunchPad.Foundation;
 using wotbot.Domain;
 using wotbot.Infrastructure;
-using wotbot.Models;
 
 namespace wotbot.Operations
 {
-    public static class GetPlayerProfile
-        {
-        public record Request(string TeamId, string Name) : IRequest<PlayerProfile>;
+    public static class FindCrafters
+    {
+        public record Request(int ItemId) : IRequest<IEnumerable<string>>;
 
         class RequestValidator : AbstractValidator<Request>
         {
             public RequestValidator()
             {
-                RuleFor(z => z.Name).NotNull().NotEmpty();
+                RuleFor(z => z.ItemId).GreaterThan(0);
             }
         }
 
-        class Handler : IRequestHandler<Request, PlayerProfile>
+        class Handler : IRequestHandler<Request, IEnumerable<string>>
         {
             private readonly ITableClientFactory _tableClientFactory;
             private readonly IMapper _mapper;
@@ -33,14 +33,14 @@ namespace wotbot.Operations
                 _tableClientFactory = tableClientFactory;
                 _mapper = mapper;
             }
-            public async Task<PlayerProfile> Handle(Request request, CancellationToken cancellationToken)
+            public async Task<IEnumerable<string>> Handle(Request request, CancellationToken cancellationToken)
             {
-                var tableClient = _tableClientFactory.CreateClient(Constants.ProfilesTable);
+                var tableClient = _tableClientFactory.CreateClient(Constants.ProfessionsTable);
                 try
                 {
-                    var entity = await tableClient.GetEntityAsync<PlayerProfileTableEntity>(request.TeamId, Base3264Encoding.ToBase32Crockford(request.Name.ToLowerInvariant()),
-                        cancellationToken: cancellationToken);
-                    return _mapper.Map<PlayerProfile>(entity.Value);
+                    var items = await tableClient.QueryAsync<ProfessionDataTableEntity>(x => x.ItemId == request.ItemId, cancellationToken: cancellationToken)
+                        .ToArrayAsync(cancellationToken);
+                    return items.Select(z => z.Player);
                 }
                 catch (Azure.RequestFailedException)
                 {

@@ -36,7 +36,7 @@ namespace wotbot
         private readonly BlockingCollection<AttachmentQueueItem> _attachmentQueue;
         private readonly BlockingCollection<VariableQueueItem> _variablesQueue;
 
-        record AttachmentQueueItem(MessageCreateEventArgs Args, DiscordAttachment discordAttachment, DiscordMessage Response);
+        record AttachmentQueueItem(MessageCreateEventArgs Args, DiscordAttachment DiscordAttachment, DiscordMessage Response);
 
         record VariableQueueItem(string ContainerName, string BlobPath)
         {
@@ -64,7 +64,6 @@ namespace wotbot
 
             _discordClient.MessageCreated += async (client, args) =>
             {
-                _logger.LogInformation("Response from {Guild}#{Channel}", args.Guild.Name, args.Channel.Name);
                 if (
                     _options.Value.SupportedGuilds.Any() && !_options.Value.SupportedGuilds.Contains(args.Guild.Name) ||
                     !_options.Value.SavedVariablesChannels.Contains(args.Channel.Name)
