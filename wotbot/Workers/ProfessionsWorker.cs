@@ -107,7 +107,7 @@ namespace wotbot
 
                 if (args.Message.Content.Contains("!profession import"))
                 {
-                    _contentQueue.Add(new ContentQueueItem(args.Message.Content));
+                    _contentQueue.Add(new ContentQueueItem(args.Message.Content) { Response = args.Message });
                 }
 
                 if (args.Message.Attachments.Any())
