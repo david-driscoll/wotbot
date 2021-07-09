@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Storage.Blobs.Models;
@@ -31,11 +33,15 @@ namespace wotbot
 
         private readonly BlockingCollection<AttachmentQueueItem> _attachmentQueue;
         private readonly BlockingCollection<ContentQueueItem> _contentQueue;
-        private readonly BlockingCollection<CrafterQueueItem> _crafterReplyQueue;
+        private readonly BlockingCollection<CrafterQueue> _crafterReplyQueue;
 
         record AttachmentQueueItem(MessageCreateEventArgs Args, DiscordAttachment DiscordAttachment, DiscordMessage Response);
 
-        record CrafterQueueItem(int ItemId, DiscordMessage Response);
+        record CrafterQueue(int ItemId, DiscordMessage Response);
+
+        record CrafterQueueSpell(int ItemId, DiscordMessage Response) : CrafterQueue(ItemId, Response);
+
+        record CrafterQueueItem(int ItemId, DiscordMessage Response) : CrafterQueue(ItemId, Response);
 
         record ContentQueueItem(string Content)
         {
@@ -54,7 +60,7 @@ namespace wotbot
 
             _attachmentQueue = new BlockingCollection<AttachmentQueueItem>();
             _contentQueue = new BlockingCollection<ContentQueueItem>();
-            _crafterReplyQueue = new BlockingCollection<CrafterQueueItem>();
+            _crafterReplyQueue = new BlockingCollection<CrafterQueue>();
         }
 
         protected override Task ExecuteAsync(CancellationToken stoppingToken)
@@ -80,18 +86,25 @@ namespace wotbot
                     .FirstOrDefault()
                     ?.ToString()
                     .Split('/', StringSplitOptions.RemoveEmptyEntries)
-                    .FirstOrDefault(z => z.StartsWith("item="));
+                    .FirstOrDefault(z => z.StartsWith("item=") || z.StartsWith("spell="));
                 if (string.IsNullOrWhiteSpace(itemIdFragment))
                 {
                     return;
                 }
 
-                if (!int.TryParse(itemIdFragment[5..], out var itemId))
+                if (!int.TryParse(itemIdFragment[(itemIdFragment.IndexOf('=') + 1)..], out var itemId))
                 {
                     return;
                 }
 
-                _crafterReplyQueue.Add(new CrafterQueueItem(itemId, args.Message));
+                if (itemIdFragment.Contains("spell"))
+                {
+                    _crafterReplyQueue.Add(new CrafterQueueSpell(itemId, args.Message));
+                }
+                else
+                {
+                    _crafterReplyQueue.Add(new CrafterQueueItem(itemId, args.Message));
+                }
             };
 
             _discordClient.MessageCreated += async (client, args) =>
@@ -133,6 +146,9 @@ namespace wotbot
             }
         }
 
+        private static Regex IdRegex = new Regex(@"""id"":(?<id>\d+)");
+        private static Regex NameRegex = new Regex(@"""name"":""(?<name>.+?)""");
+
         private async Task IngestContent(CancellationToken cancellationToken)
         {
             while (_contentQueue.TryTake(out var data, -1, cancellationToken))
@@ -141,7 +157,28 @@ namespace wotbot
                 var professionData = await _executeScoped.Invoke((m, ct) => m.Send(new ExtractProfessionDataFromMessage.Request(content), ct), cancellationToken);
                 foreach (var row in professionData)
                 {
-                    await _executeScoped.Invoke((m, ct) => m.Send(new UploadProfessionData.Request(row.Player, row.Profession, row.Items.Select(z => new UploadProfessionData.Item(z.Id, z.Name))), ct), cancellationToken);
+                    var items = row.Items.Select(z => new UploadProfessionData.Item(z.Id, z.Name)).ToList();
+                    if (row.Profession.Equals("Enchanting", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var client = new HttpClient();
+                        foreach (var item in items.ToArray())
+                        {
+                            var spellId = item.Id;
+                            var whContent = await client.GetStringAsync($"https://tbc.wowhead.com/spell={spellId}", cancellationToken);
+                            var lines = whContent.Split('\n');
+                            var line = lines.FirstOrDefault(z => z.Contains("WH.TERMS.taughtby"));
+                            if (string.IsNullOrWhiteSpace(line)) continue;
+                            var idMatch = IdRegex.Match(line);
+                            if (!idMatch.Success) continue;
+                            var nameMatch = NameRegex.Match(line, idMatch.Index);
+                            if (!nameMatch.Success || !nameMatch.Groups["name"].Value.StartsWith("Formula:")) continue;
+
+                            items.Add(new UploadProfessionData.Item(int.Parse(idMatch.Groups["id"].Value), nameMatch.Groups["name"].Value));
+                            //WH.TERMS.taughtby
+                        }
+                    }
+
+                    await _executeScoped.Invoke((m, ct) => m.Send(new UploadProfessionData.Request(row.Player, row.Profession, items), ct), cancellationToken);
                 }
 
                 if (data.Response is { })
