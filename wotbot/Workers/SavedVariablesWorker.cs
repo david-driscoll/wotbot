@@ -196,13 +196,16 @@ Items Won:
                                         );
                                 }
                             }
+
                             if (lootMessages.Any())
-                            foreach (var channel in reportChannels)
                             {
-                                await channel.SendMessageAsync(initialMessage);
-                                foreach (var lootMessage in lootMessages)
+                                foreach (var channel in reportChannels)
                                 {
-                                    await channel.SendMessageAsync(lootMessage);
+                                    await channel.SendMessageAsync(initialMessage);
+                                    foreach (var lootMessage in lootMessages)
+                                    {
+                                        await channel.SendMessageAsync(lootMessage);
+                                    }
                                 }
                             }
                         }
@@ -214,7 +217,7 @@ Items Won:
                     if (data is { Response: { } r })
                     {
                         await data.Response.ModifyAsync(new DiscordMessageBuilder()
-                            .WithContent($"Error ingesting file {e.Message}")
+                            .WithContent($"Error ingesting file {e.Message} {e.StackTrace}")
                             .WithEmbed(new DiscordEmbedBuilder()
                                 .AddField("Status", "Failed")
                             )
