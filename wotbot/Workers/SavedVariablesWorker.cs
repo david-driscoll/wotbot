@@ -86,19 +86,26 @@ namespace wotbot
         {
             while (_attachmentQueue.TryTake(out var data, -1, cancellationToken))
             {
-                var (args, attachment, response) = data;
-                using var httpClient = _httpClientFactory.CreateClient(nameof(SavedVariablesWorker));
-                var documentResponse = await httpClient.GetStreamAsync(attachment.Url, cancellationToken);
-                var containerClient = _containerClientFactory.CreateClient(Constants.SavedVariablesStaging);
-                await containerClient.CreateIfNotExistsAsync(PublicAccessType.None, cancellationToken: cancellationToken);
-                var path =
-                    $"{args.Guild.Id}/{attachment.CreationTimestamp:yyyy-MM-dd}/{args.Author.Username}/{args.Message.Id}-{attachment.Id}-{Path.GetFileName(attachment.FileName)}";
-                await containerClient.UploadBlobAsync(
-                    $"{args.Guild.Id}/{attachment.CreationTimestamp:yyyy-MM-dd}/{args.Author.Username}/{args.Message.Id}-{attachment.Id}-{Path.GetFileName(attachment.FileName)}",
-                    documentResponse,
-                    cancellationToken
-                );
-                _variablesQueue.Add(new VariableQueueItem(Constants.SavedVariablesStaging, path) { Response = response }, cancellationToken);
+                try
+                {
+                    var (args, attachment, response) = data;
+                    using var httpClient = _httpClientFactory.CreateClient(nameof(SavedVariablesWorker));
+                    var documentResponse = await httpClient.GetStreamAsync(attachment.Url, cancellationToken);
+                    var containerClient = _containerClientFactory.CreateClient(Constants.SavedVariablesStaging);
+                    await containerClient.CreateIfNotExistsAsync(PublicAccessType.None, cancellationToken: cancellationToken);
+                    var path =
+                        $"{args.Guild.Id}/{attachment.CreationTimestamp:yyyy-MM-dd}/{args.Author.Username}/{args.Message.Id}-{attachment.Id}-{Path.GetFileName(attachment.FileName)}";
+                    await containerClient.UploadBlobAsync(
+                        $"{args.Guild.Id}/{attachment.CreationTimestamp:yyyy-MM-dd}/{args.Author.Username}/{args.Message.Id}-{attachment.Id}-{Path.GetFileName(attachment.FileName)}",
+                        documentResponse,
+                        cancellationToken
+                    );
+                    _variablesQueue.Add(new VariableQueueItem(Constants.SavedVariablesStaging, path) { Response = response }, cancellationToken);
+                }
+                catch (Exception e)
+                {
+                    _logger.LogError(e, "Failed processing Attachment");
+                }
             }
         }
 

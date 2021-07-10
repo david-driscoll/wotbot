@@ -139,10 +139,17 @@ namespace wotbot
         {
             while (_attachmentQueue.TryTake(out var data, -1, cancellationToken))
             {
-                var (args, attachment, response) = data;
-                using var httpClient = _httpClientFactory.CreateClient(nameof(SavedVariablesWorker));
-                var documentResponse = await httpClient.GetStringAsync(attachment.Url, cancellationToken);
-                _contentQueue.Add(new ContentQueueItem(documentResponse) { Response = response }, cancellationToken);
+                try
+                {
+                    var (args, attachment, response) = data;
+                    using var httpClient = _httpClientFactory.CreateClient(nameof(SavedVariablesWorker));
+                    var documentResponse = await httpClient.GetStringAsync(attachment.Url, cancellationToken);
+                    _contentQueue.Add(new ContentQueueItem(documentResponse) { Response = response }, cancellationToken);
+                }
+                catch (Exception e)
+                {
+                    _logger.LogError(e, "Failed processing attachment");
+                }
             }
         }
 
@@ -153,37 +160,44 @@ namespace wotbot
         {
             while (_contentQueue.TryTake(out var data, -1, cancellationToken))
             {
-                var content = data.Content;
-                var professionData = await _executeScoped.Invoke((m, ct) => m.Send(new ExtractProfessionDataFromMessage.Request(content), ct), cancellationToken);
-                foreach (var row in professionData)
+                try
                 {
-                    var items = row.Items.Select(z => new UploadProfessionData.Item(z.Id, z.Name)).ToList();
-                    if (row.Profession.Equals("Enchanting", StringComparison.OrdinalIgnoreCase))
+                    var content = data.Content;
+                    var professionData = await _executeScoped.Invoke((m, ct) => m.Send(new ExtractProfessionDataFromMessage.Request(content), ct), cancellationToken);
+                    foreach (var row in professionData)
                     {
-                        var client = new HttpClient();
-                        foreach (var item in items.ToArray())
+                        var items = row.Items.Select(z => new UploadProfessionData.Item(z.Id, z.Name)).ToList();
+                        if (row.Profession.Equals("Enchanting", StringComparison.OrdinalIgnoreCase))
                         {
-                            var spellId = item.Id;
-                            var whContent = await client.GetStringAsync($"https://tbc.wowhead.com/spell={spellId}", cancellationToken);
-                            var lines = whContent.Split('\n');
-                            var line = lines.FirstOrDefault(z => z.Contains("WH.TERMS.taughtby"));
-                            if (string.IsNullOrWhiteSpace(line)) continue;
-                            var idMatch = IdRegex.Match(line);
-                            if (!idMatch.Success) continue;
-                            var nameMatch = NameRegex.Match(line, idMatch.Index);
-                            if (!nameMatch.Success || !nameMatch.Groups["name"].Value.StartsWith("Formula:")) continue;
+                            var client = new HttpClient();
+                            foreach (var item in items.ToArray())
+                            {
+                                var spellId = item.Id;
+                                var whContent = await client.GetStringAsync($"https://tbc.wowhead.com/spell={spellId}", cancellationToken);
+                                var lines = whContent.Split('\n');
+                                var line = lines.FirstOrDefault(z => z.Contains("WH.TERMS.taughtby"));
+                                if (string.IsNullOrWhiteSpace(line)) continue;
+                                var idMatch = IdRegex.Match(line);
+                                if (!idMatch.Success) continue;
+                                var nameMatch = NameRegex.Match(line, idMatch.Index);
+                                if (!nameMatch.Success || !nameMatch.Groups["name"].Value.StartsWith("Formula:")) continue;
 
-                            items.Add(new UploadProfessionData.Item(int.Parse(idMatch.Groups["id"].Value), nameMatch.Groups["name"].Value));
-                            //WH.TERMS.taughtby
+                                items.Add(new UploadProfessionData.Item(int.Parse(idMatch.Groups["id"].Value), nameMatch.Groups["name"].Value));
+                                //WH.TERMS.taughtby
+                            }
                         }
+
+                        await _executeScoped.Invoke((m, ct) => m.Send(new UploadProfessionData.Request(row.Player, row.Profession, items), ct), cancellationToken);
                     }
 
-                    await _executeScoped.Invoke((m, ct) => m.Send(new UploadProfessionData.Request(row.Player, row.Profession, items), ct), cancellationToken);
+                    if (data.Response is { })
+                    {
+                        await data.Response.DeleteAsync();
+                    }
                 }
-
-                if (data.Response is { })
+                catch (Exception e)
                 {
-                    await data.Response.DeleteAsync();
+                    _logger.LogError(e, "Failed processing Content");
                 }
             }
         }
@@ -192,26 +206,33 @@ namespace wotbot
         {
             while (_crafterReplyQueue.TryTake(out var data, -1, cancellationToken))
             {
-                var crafters = (await _executeScoped.Invoke((m, ct) => m.Send(new FindCrafters.Request(data.ItemId), ct))).ToArray();
-                if (crafters.Any())
+                try
                 {
-                    await data.Response.RespondAsync(new DiscordMessageBuilder()
-                        .WithEmbed(new DiscordEmbedBuilder()
-                            .WithTitle("Crafters")
-                            .WithColor(DiscordColor.PhthaloGreen)
-                            .WithDescription(string.Join(", ", crafters))
-                        )
-                    );
+                    var crafters = (await _executeScoped.Invoke((m, ct) => m.Send(new FindCrafters.Request(data.ItemId), ct))).ToArray();
+                    if (crafters.Any())
+                    {
+                        await data.Response.RespondAsync(new DiscordMessageBuilder()
+                            .WithEmbed(new DiscordEmbedBuilder()
+                                .WithTitle("Crafters")
+                                .WithColor(DiscordColor.PhthaloGreen)
+                                .WithDescription(string.Join(", ", crafters))
+                            )
+                        );
+                    }
+                    else
+                    {
+                        await data.Response.RespondAsync(new DiscordMessageBuilder()
+                            .WithEmbed(new DiscordEmbedBuilder()
+                                .WithTitle("Crafters")
+                                .WithColor(DiscordColor.Yellow)
+                                .WithDescription("No known crafters")
+                            )
+                        );
+                    }
                 }
-                else
+                catch (Exception e)
                 {
-                    await data.Response.RespondAsync(new DiscordMessageBuilder()
-                        .WithEmbed(new DiscordEmbedBuilder()
-                            .WithTitle("Crafters")
-                            .WithColor(DiscordColor.Yellow)
-                            .WithDescription("No known crafters")
-                        )
-                    );
+                    _logger.LogError(e, "Failed processing Search");
                 }
             }
         }
