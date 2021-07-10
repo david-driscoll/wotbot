@@ -29,7 +29,7 @@ namespace wotbot.Operations
             protected override IEnumerable<Response> Handle(Request request)
             {
                 var players = new Dictionary<(string player, string profession), ImmutableArray<Item>.Builder>();
-                foreach (var line in request.Content.Split(Environment.NewLine))
+                foreach (var line in request.Content.Split('\n', StringSplitOptions.RemoveEmptyEntries))
                 {
                     if (!line.TrimStart().StartsWith("!profession import")) continue;
                     var base64Content = line[19..];

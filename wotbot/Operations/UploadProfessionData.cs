@@ -50,6 +50,7 @@ namespace wotbot.Operations
                         ItemId = item.Id,
                         ItemName = item.Name
                     })
+                    .Distinct(z => z.ItemId)
                     .Select(profile => new TableTransactionAction(TableTransactionActionType.UpsertReplace, profile))
                     .ToArray();
 
