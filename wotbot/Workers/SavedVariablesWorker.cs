@@ -160,6 +160,7 @@ namespace wotbot
                         if (data.Response?.Channel?.GuildId is { } guildId)
                         {
                             var g = _discordClient.Guilds[guildId];
+
                             var reportChannels = g.Channels.Values.Where(z => _options.Value.OutputChannels.Contains(z.Name));
                             var initialMessage = new DiscordMessageBuilder()
                                 .WithEmbed(
@@ -187,7 +188,7 @@ namespace wotbot
                                     .WithEmbed(
                                         new DiscordEmbedBuilder()
                                             .WithTitle($"Standings {team.Name}")
-                                            .AddStandings(standings));
+                                            .AddStandings(g, standings));
                             }
 
                             async IAsyncEnumerable<DiscordMessageBuilder> GetLootMessages(TeamRecord team, ImmutableArray<AwardedLoot> awardedLoots)

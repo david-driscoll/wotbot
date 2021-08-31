@@ -75,7 +75,6 @@ namespace wotbot.Commands
         public async Task GetRaidPoints(CommandContext ctx, string name)
         {
             var team = _options.Value.SupportedTeams.Single();
-
             try
             {
                 if (name.Equals("all", StringComparison.OrdinalIgnoreCase) || name.Equals("list", StringComparison.OrdinalIgnoreCase))
@@ -148,7 +147,7 @@ namespace wotbot.Commands
                     title = $"{cls} Standings";
                 }
 
-                var embed = new DiscordEmbedBuilder().WithTitle(title).AddStandings(standings);
+                var embed = new DiscordEmbedBuilder().WithTitle(title).AddStandings(commandContext.Guild, standings);
 
                 var msg = new DiscordMessageBuilder().WithEmbed(embed);
                 await commandContext.RespondAsync(msg);

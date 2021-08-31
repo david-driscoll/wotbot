@@ -50,7 +50,7 @@ namespace wotbot
             return FromDiscordEvent<T, T>(subscribe, unsubscribe, (client, args) => Observable.Return(args));
         }
 
-        public static DiscordEmbedBuilder AddStandings(this DiscordEmbedBuilder embed, IEnumerable<PlayerProfile> profile)
+        public static DiscordEmbedBuilder AddStandings(this DiscordEmbedBuilder embed, DiscordGuild guild, IEnumerable<PlayerProfile> profile)
         {
             foreach (var (list, index) in profile
                 .OrderByDescending(z => z.CurrentPoints)
@@ -61,7 +61,9 @@ namespace wotbot
                 var value = new StringBuilder();
                 foreach (var item in list)
                 {
-                    value.Append($"`{item.CurrentPoints.ToString("D").PadLeft(4)}` :{item.GetClass().ToString().ToLowerInvariant()}class: {item.Player}\n");
+                    var emoji = guild.Emojis.Values.FirstOrDefault(z => z.Name.Contains(item.GetClass().ToString(), StringComparison.OrdinalIgnoreCase))?.ToString() ??
+                                $"[{item.GetClass().ToString().ToLowerInvariant()}]";
+                    value.Append($"`{item.CurrentPoints.ToString("D").PadLeft(4)}` {emoji} {item.Player}\n");
                 }
 
                 embed.AddField($"{(index * list.Count) + 1}-{(index * list.Count) + list.Count}", value.ToString());
