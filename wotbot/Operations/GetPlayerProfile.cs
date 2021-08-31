@@ -1,7 +1,9 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using FluentValidation;
+using ImTools;
 using MediatR;
 using Rocket.Surgery.Encoding;
 using Rocket.Surgery.LaunchPad.Foundation;
@@ -12,13 +14,14 @@ using wotbot.Models;
 namespace wotbot.Operations
 {
     public static class GetPlayerProfile
-        {
+    {
         public record Request(string TeamId, string Name) : IRequest<PlayerProfile>;
 
         class RequestValidator : AbstractValidator<Request>
         {
             public RequestValidator()
             {
+                RuleFor(z => z.TeamId).NotNull().NotEmpty();
                 RuleFor(z => z.Name).NotNull().NotEmpty();
             }
         }
@@ -33,6 +36,7 @@ namespace wotbot.Operations
                 _tableClientFactory = tableClientFactory;
                 _mapper = mapper;
             }
+
             public async Task<PlayerProfile> Handle(Request request, CancellationToken cancellationToken)
             {
                 var tableClient = _tableClientFactory.CreateClient(Constants.ProfilesTable);

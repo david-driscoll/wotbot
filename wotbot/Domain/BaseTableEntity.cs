@@ -5,12 +5,17 @@ using Azure.Data.Tables;
 namespace wotbot.Domain
 {
     public abstract class BaseTableEntity : ITableEntity, IEquatable<BaseTableEntity> {
-    
-        private readonly DateTimeOffset? _timestamp = default!;
+
+        private DateTimeOffset? _timestamp = default!;
         private ETag _eTag = default!;
         public abstract string PartitionKey { get; set; }
         public abstract string RowKey{ get; set; }
-        DateTimeOffset? ITableEntity.Timestamp => _timestamp;
+        DateTimeOffset? ITableEntity.Timestamp
+        {
+            get { return _timestamp; }
+            set { _timestamp = value; }
+        }
+
         ETag ITableEntity.ETag
         {
             get => _eTag;

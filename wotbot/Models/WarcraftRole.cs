@@ -9,4 +9,11 @@
         Tank,
         Healer,
     }
+
+    public enum TbcTierToken
+    {
+        Tier4,
+        Tier5,
+        Tier6
+    }
 }
