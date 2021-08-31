@@ -99,8 +99,9 @@ namespace wotbot.Commands
                 var msg = new DiscordMessageBuilder()
                     .WithEmbed(new DiscordEmbedBuilder()
                         // .WithTitle("WOT BOT")
-                        .WithDescription($"gcordColor.Gray)
-                        .WithThumbnail($"https://wotbot.azurewebsites.net/question.gif")
+                        .WithDescription($"I'm sorry I could not find any points for _{name}_!")
+                        .WithColor(DiscordColor.Gray)
+                        .WithThumbnail($"https://wotbot.azurewebsites.net/question.gi
                     );
                 await ctx.RespondAsync(msg);
             }
