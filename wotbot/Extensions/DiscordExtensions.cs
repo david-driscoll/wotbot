@@ -66,7 +66,7 @@ namespace wotbot
                     value.Append($"`{item.CurrentPoints.ToString("D").PadLeft(4)}` {emoji} {item.Player}\n");
                 }
 
-                embed.AddField(list.Count == 1 ? list.First().CurrentPoints.ToString() : $"{list.First().CurrentPoints}-{list.Last().CurrentPoints}", value.ToString());
+                embed.AddField(list.Count == 1 ? list.First().CurrentPoints.ToString() : $"{list.First().CurrentPoints} :left_right_arrow: {list.Last().CurrentPoints}", value.ToString(), inline: true);
             }
 
             return embed;
