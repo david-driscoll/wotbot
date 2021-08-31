@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -130,7 +131,7 @@ namespace wotbot.Commands
 
             async Task ReportList(CommandContext commandContext, WarcraftRole? role, WarcraftClass? cls )
             {
-                var profile = await _executeScoped.Invoke((x, ct) => x.Send(new ListProfiles.Request(team)
+                var standings = await _executeScoped.Invoke((x, ct) => x.Send(new ListProfiles.Request(team)
                 {
                     Role = role,
                     Class = cls
@@ -147,21 +148,7 @@ namespace wotbot.Commands
                     title = $"{cls} Standings";
                 }
 
-                var embed = new DiscordEmbedBuilder().WithTitle(title);
-
-                foreach (var (list, index) in profile
-                    .OrderByDescending(z => z.CurrentPoints)
-                    .Buffer(10)
-                    .Select((z, i) => (z, i))
-                )
-                {
-                    var value = new StringBuilder();
-                    foreach (var item in list)
-                    {
-                        value.Append($"`{item.CurrentPoints.ToString("D").PadLeft(4)}` :{item.GetClass()}: {item.Player}\n");
-                    }
-                    embed.AddField($"{index + 1}-{index + list.Count}", value.ToString());
-                }
+                var embed = new DiscordEmbedBuilder().WithTitle(title).AddStandings(standings);
 
                 var msg = new DiscordMessageBuilder().WithEmbed(embed);
                 await commandContext.RespondAsync(msg);

@@ -169,10 +169,26 @@ namespace wotbot
                                 );
 
                             var supportedResults = results.Where(z => _options.Value.SupportedTeams.Contains(z.team.TeamId));
+                            var supportedTeams = supportedResults.Select(z => z.team).Distinct();
                             var lootMessages = await supportedResults
                                 .ToAsyncEnumerable()
                                 .SelectMany(z => GetLootMessages(z.team, z.newLoot))
                                 .ToArrayAsync(cancellationToken);
+
+                            var standingMessages = await supportedTeams
+                                .ToAsyncEnumerable()
+                                .SelectMany(GetStandingsMessage)
+                                .ToArrayAsync(cancellationToken);
+
+                            async IAsyncEnumerable<DiscordMessageBuilder> GetStandingsMessage(TeamRecord team)
+                            {
+                                var standings = await _executeScoped.Invoke((x, ct) => x.Send(new ListProfiles.Request(team.TeamId), ct), cancellationToken);
+                                yield return new DiscordMessageBuilder()
+                                    .WithEmbed(
+                                        new DiscordEmbedBuilder()
+                                            .WithTitle($"Standings {team.Name}")
+                                            .AddStandings(standings));
+                            }
 
                             async IAsyncEnumerable<DiscordMessageBuilder> GetLootMessages(TeamRecord team, ImmutableArray<AwardedLoot> awardedLoots)
                             {
@@ -203,14 +219,21 @@ Items Won:
                                 }
                             }
 
-                            if (lootMessages.Any())
+                            foreach (var channel in reportChannels)
+                            {
+                                await channel.SendMessageAsync(initialMessage);
+                            }
+                            if (lootMessages.Any() || standingMessages.Any())
                             {
                                 foreach (var channel in reportChannels)
                                 {
-                                    await channel.SendMessageAsync(initialMessage);
-                                    foreach (var lootMessage in lootMessages)
+                                    foreach (var message in lootMessages)
                                     {
-                                        await channel.SendMessageAsync(lootMessage);
+                                        await channel.SendMessageAsync(message);
+                                    }
+                                    foreach (var message in standingMessages)
+                                    {
+                                        await channel.SendMessageAsync(message);
                                     }
                                 }
                             }
