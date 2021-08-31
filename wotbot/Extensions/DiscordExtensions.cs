@@ -61,7 +61,7 @@ namespace wotbot
                 var value = new StringBuilder();
                 foreach (var item in list)
                 {
-                    value.Append($"`{item.CurrentPoints.ToString("D").PadLeft(4)}` :{item.GetClass().ToString().ToLowerInvariant()}: {item.Player}\n");
+                    value.Append($"`{item.CurrentPoints.ToString("D").PadLeft(4)}` :{item.GetClass().ToString().ToLowerInvariant()}class: {item.Player}\n");
                 }
 
                 embed.AddField($"{(index * index) + 1}-{(index * index) + list.Count}", value.ToString());
