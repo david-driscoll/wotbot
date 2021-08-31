@@ -64,7 +64,7 @@ namespace wotbot
                     value.Append($"`{item.CurrentPoints.ToString("D").PadLeft(4)}` :{item.GetClass().ToString().ToLowerInvariant()}class: {item.Player}\n");
                 }
 
-                embed.AddField($"{(index * index) + 1}-{(index * index) + list.Count}", value.ToString());
+                embed.AddField($"{(index * list.Count) + 1}-{(index * list.Count) + list.Count}", value.ToString());
             }
 
             return embed;
