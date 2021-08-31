@@ -101,7 +101,7 @@ namespace wotbot.Commands
                         // .WithTitle("WOT BOT")
                         .WithDescription($"I'm sorry I could not find any points for _{name}_!")
                         .WithColor(DiscordColor.Gray)
-                        .WithThumbnail($"https://wotbot.azurewebsites.net/question.gi
+                        .WithThumbnail($"https://wotbot.azurewebsites.net/question.gif")
                     );
                 await ctx.RespondAsync(msg);
             }
