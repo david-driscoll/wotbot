@@ -405,7 +405,14 @@ CommDKP_DKPHistory = {
 					["date"] = 1621055942,
 					["reason"] = "Other - test",
 				}, -- [1]
-				["seed"] = 0,
+             ["2"] = {
+                 ["players"] = "Sithie,Vansertima,Mireabella,Felguard,",
+                 ["index"] = "Hubs-1621056399",
+                 ["dkp"] = "-4,-2,-3,-5,-5%",
+                 ["date"] = 1621056399,
+                 ["reason"] = "Weekly Decay",
+             }, -- [2]
+				["seed"] = 1,
 			},
 		},
 	},

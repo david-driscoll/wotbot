@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Immutable;
 using System.Text.Json.Serialization;
+using NLua;
 
 namespace wotbot.Models
 {
@@ -14,6 +16,9 @@ namespace wotbot.Models
         DateTimeOffset Date,
         string Index,
         long Cost,
-        string Player
+        string Player,
+        ImmutableArray<Bidder> Bidders
     );
+
+    public record Bidder(string Name, long Dkp);
 }

@@ -77,19 +77,19 @@ namespace wotbot.Operations
                 foreach (var (team, profiles) in ExtractProfiles(request, lua, teams))
                 {
                     if (!result.TryGetValue(team, out var response)) continue;
-                    result[team] = response with {PlayerProfiles = profiles.ToImmutableArray()};
+                    result[team] = response with { PlayerProfiles = profiles.ToImmutableArray() };
                 }
 
                 foreach (var (team, loot) in ExtractAwardedLoot(request, lua, teams))
                 {
                     if (!result.TryGetValue(team, out var response)) continue;
-                    result[team] = response with {AwardedLoot = loot.ToImmutableArray()};
+                    result[team] = response with { AwardedLoot = loot.ToImmutableArray() };
                 }
 
                 foreach (var (team, history) in ExtractRawHistory(request, lua, teams))
                 {
                     if (!result.TryGetValue(team, out var response)) continue;
-                    result[team] = response with {AwardedPoints = history.ToImmutableArray()};
+                    result[team] = response with { AwardedPoints = history.ToImmutableArray() };
                 }
 
                 return result.ToImmutable();
@@ -191,7 +191,7 @@ namespace wotbot.Operations
             record RawHistoryRecord(
                 string Players,
                 string Index,
-                [property: JsonPropertyName("dkp")] long Points,
+                [property: JsonPropertyName("dkp")] JsonElement PointsOrPointsList,
                 [property: JsonConverter(typeof(DateSecondsToDateTimeOffsetJsonConverter))]
                 DateTimeOffset Date,
                 string Reason
@@ -199,8 +199,24 @@ namespace wotbot.Operations
             {
                 public static IEnumerable<AwardedPoints> Expand(RawHistoryRecord historyRecord)
                 {
-                    return historyRecord.Players.Split(",", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                        .Select(player => new AwardedPoints(player, historyRecord.Index, historyRecord.Points, historyRecord.Date, historyRecord.Reason));
+                    var players = historyRecord.Players.Split(",", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    if (historyRecord.PointsOrPointsList is { ValueKind: JsonValueKind.String })
+                    {
+                        var pointPerPlayer = historyRecord.PointsOrPointsList.ToString()!
+                            .Split(",", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                            .SkipLast(1)
+                            .Select(long.Parse);
+
+                        return players
+                            .Zip(pointPerPlayer, (player, points) => new AwardedPoints(player, historyRecord.Index, points, historyRecord.Date, historyRecord.Reason));
+                    }
+
+                    if (historyRecord.PointsOrPointsList is { ValueKind: JsonValueKind.Number })
+                        return players
+                            .Select(player => new AwardedPoints(player, historyRecord.Index, historyRecord.PointsOrPointsList.GetInt64(), historyRecord.Date,
+                                historyRecord.Reason));
+
+                    throw new NotSupportedException("Unable to handle given value for the dkp field");
                 }
             };
         }
