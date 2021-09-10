@@ -17,8 +17,7 @@ namespace wotbot.Models
         DateTimeOffset Date,
         string Index,
         long Cost,
-        string Player,
-        IEnumerable<Bidder> Bidders
+        string Player
     );
 
     public record Bidder(string Name, long Dkp);

@@ -116,7 +116,7 @@ namespace wotbot
                 try
                 {
                     var response = await _executeScoped.Invoke(x => x.Send(new ExtractDataFromSavedVariables.Request(data.ContainerName, data.BlobPath), cancellationToken));
-                    _logger.LogInformation("Ingest {@Data}", response);
+                    // _logger.LogInformation("Ingest {@Data}", response);
 
                     if (data.Response is not null)
                     {
@@ -129,19 +129,18 @@ namespace wotbot
 
                     // handler per team points / loot
                     await _executeScoped.Invoke(x => x.Send(new UploadTeams.Request(response.Keys.ToImmutableArray()), cancellationToken));
-                    var results = await response.Select(d => Observable.FromAsync(async ct =>
+                    var results = await response
+                        .ToAsyncEnumerable()
+                        .SelectAwaitWithCancellation(async (d, ct ) =>
                         {
                             var playerProfileUpload = _executeScoped.Invoke(x => x.Send(new UploadPlayerProfiles.Request(d.Key, d.Value.PlayerProfiles), ct));
                             var awardedPointsUpload = _executeScoped.Invoke(x => x.Send(new UploadAwardedPoints.Request(d.Key, d.Value.AwardedPoints), ct));
                             var awardedLootUpload = _executeScoped.Invoke(x => x.Send(new UploadAwardedLoot.Request(d.Key, d.Value.AwardedLoot), ct));
                             await Task.WhenAll(playerProfileUpload, awardedLootUpload, awardedPointsUpload);
                             return (team: d.Key, newLoot: awardedLootUpload.Result, newPoints: awardedPointsUpload.Result);
-                        }))
-                        .ToObservable()
-                        .Merge()
-                        .ToArray()
-                        .ToTask(cancellationToken);
-                    _logger.LogInformation("Finished Ingest {@Data}", response);
+                        })
+                        .ToArrayAsync(cancellationToken);
+                    // _logger.LogInformation("Finished Ingest {@Data}", response);
 
                     if (data.Response is not null)
                     {
