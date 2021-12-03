@@ -22,6 +22,7 @@ using Rocket.Surgery.DependencyInjection;
 using wotbot.Infrastructure;
 using wotbot.Models;
 using wotbot.Operations;
+using Humanizer;
 
 namespace wotbot
 {
@@ -246,7 +247,7 @@ Items Won:
                     if (data is { Response: { } r })
                     {
                         await data.Response.ModifyAsync(new DiscordMessageBuilder()
-                            .WithContent($"Error ingesting file {e.Message} {e.StackTrace}")
+                            .WithContent($"Error ingesting file {e.Message} {e.StackTrace}".Truncate(2000))
                             .WithEmbed(new DiscordEmbedBuilder()
                                 .AddField("Status", "Failed")
                             )

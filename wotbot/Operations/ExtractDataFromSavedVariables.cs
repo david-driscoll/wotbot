@@ -159,7 +159,8 @@ namespace wotbot.Operations
                             // and always have a number
                             if (item.Key is string s && !long.TryParse(s, out _)) throw new Exception("unexpected record found");
                             var lookup = new TeamLookup(key.ToString()!, guild.ToString()!, item.Key.ToString()!);
-                            var team = teams.First(z => z.TeamId == lookup.ToTeamId());
+                            var team = teams.FirstOrDefault(z => z.TeamId == lookup.ToTeamId());
+                            if (team is null) continue;
 
                             if (item.Value is not T v)
                             {
