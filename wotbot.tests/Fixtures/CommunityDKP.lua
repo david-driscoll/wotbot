@@ -501,6 +501,9 @@ CommDKP_Archive = {
 			["0"] = {
 			},
 			["1"] = {
+				["Sithie"] = {
+					["deleted"] = true,
+				},
 			},
 		},
 	},

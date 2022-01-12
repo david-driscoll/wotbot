@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
@@ -52,23 +53,43 @@ namespace wotbot.Operations
                 var tableClient = _tableClientFactory.CreateClient(Constants.ProfilesTable);
                 await tableClient.CreateIfNotExistsAsync(cancellationToken);
 
+                var transactions = new List<TableTransactionAction>();
+                var existingProfiles = await tableClient.QueryAsync<PlayerProfileTableEntity>($"(PartitionKey eq '{request.Team.TeamId}')")
+                    .ToDictionaryAsync(z => z.RowKey, cancellationToken);
+
                 var profiles =
                     request.PlayerProfiles
                         .Select(profile =>
                         {
                             var result = _mapper.Map<PlayerProfileTableEntity>(profile);
                             result.TeamId = request.Team.TeamId;
+                            if (existingProfiles.TryGetValue(result.RowKey, out var existingProfile))
+                            {
+                                result.Deleted = existingProfile.Deleted;
+                            }
                             return result;
                         })
-                        .Select(profile => new TableTransactionAction(TableTransactionActionType.UpsertReplace, profile))
                         .ToArray();
-                if (profiles.Any())
-                {
-                    foreach (var buffer in profiles.Buffer(100))
+
+                transactions.AddRange(existingProfiles.Keys
+                    .Except(profiles.Select(z => z.RowKey))
+                    .Select(profile =>
                     {
-                        await tableClient.SubmitTransactionAsync(buffer, cancellationToken);
-                    }
+                        existingProfiles[profile].Deleted = true;
+                        return new TableTransactionAction(TableTransactionActionType.UpsertReplace, existingProfiles[profile]);
+                    })
+                );
+                transactions.AddRange(profiles
+                    .Select(profile => new TableTransactionAction(TableTransactionActionType.UpsertReplace, profile))
+                    .ToArray()
+                );
+                if (!transactions.Any()) return Unit.Value;
+
+                foreach (var buffer in transactions.Buffer(100))
+                {
+                    await tableClient.SubmitTransactionAsync(buffer, cancellationToken);
                 }
+
                 return Unit.Value;
             }
         }

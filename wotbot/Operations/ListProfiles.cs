@@ -19,6 +19,7 @@ namespace wotbot.Operations
         {
             public WarcraftClass? Class { get; init; }
             public WarcraftRole? Role { get; init; }
+            public bool IncludeDeleted { get; init; }
         }
 
         class RequestValidator : AbstractValidator<Request>
@@ -64,10 +65,10 @@ namespace wotbot.Operations
                     }
                     else
                     {
-                        result = tableClient.QueryAsync<PlayerProfileTableEntity>(x => x.TeamId == request.TeamId, cancellationToken: cancellationToken);
+                        result = tableClient.QueryAsync<PlayerProfileTableEntity>($"(PartitionKey eq '{request.TeamId}')", cancellationToken: cancellationToken);
                     }
 
-                    return (await result.Select(_mapper.Map<PlayerProfile>).ToArrayAsync(cancellationToken)).ToImmutableArray();
+                    return (await result.Where(z => request.IncludeDeleted || z.Deleted == false).Select(_mapper.Map<PlayerProfile>).ToArrayAsync(cancellationToken)).ToImmutableArray();
                 }
                 catch (Azure.RequestFailedException)
                 {

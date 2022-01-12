@@ -9,6 +9,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Storage.Blobs.Models;
+using Emzi0767.Utilities;
 using FluentValidation;
 using MediatR;
 using NLua;
@@ -29,6 +30,7 @@ namespace wotbot.Operations
             public string LootTableName { get; init; } = "CommDKP_Loot";
             public string ProfileTableName { get; init; } = "CommDKP_DKPTable";
             public string HistoryTableName { get; init; } = "CommDKP_DKPHistory";
+            public string ArchiveTableName { get; init; } = "CommDKP_Archive";
         }
 
         public record Response(ImmutableArray<PlayerProfile> PlayerProfiles, ImmutableArray<AwardedLoot> AwardedLoot, ImmutableArray<AwardedPoints> AwardedPoints);
@@ -74,10 +76,22 @@ namespace wotbot.Operations
 
                 var result = teams.ToImmutableDictionary(z => z,
                     z => new Response(ImmutableArray<PlayerProfile>.Empty, ImmutableArray<AwardedLoot>.Empty, ImmutableArray<AwardedPoints>.Empty)).ToBuilder();
+
                 foreach (var (team, profiles) in ExtractProfiles(request, lua, teams))
                 {
                     if (!result.TryGetValue(team, out var response)) continue;
                     result[team] = response with { PlayerProfiles = profiles.ToImmutableArray() };
+                }
+
+                foreach (var (team, deleted) in ExtractDeleted(request, lua, teams))
+                {
+                    if (!result.TryGetValue(team, out var response)) continue;
+                    result[team] = response with
+                    {
+                        PlayerProfiles = response.PlayerProfiles
+                            .Select(z => z with { Deleted = deleted.TryGetValue(z.Player, out var d) ? d : z.Deleted })
+                            .ToImmutableArray()
+                    };
                 }
 
                 foreach (var (team, loot) in ExtractAwardedLoot(request, lua, teams))
@@ -116,6 +130,17 @@ namespace wotbot.Operations
                 if (lua.GetObjectFromPath(request.ProfileTableName) is not LuaTable dkpTable) throw new Exception("Table not found");
 
                 return ResolveTeamBasedData<IEnumerable<PlayerProfile>>(dkpTable, teams);
+            }
+
+            private static IEnumerable<(TeamRecord team, IDictionary<string, bool> deleted)> ExtractDeleted(Request request, Lua lua, ImmutableHashSet<TeamRecord> teams)
+            {
+                if (lua.GetObjectFromPath(request.ArchiveTableName) is not LuaTable dkpTable) throw new Exception("Table not found");
+
+                foreach (var (@record, value) in ResolveTeamBasedData(dkpTable, teams))
+                {
+                    var result = value.ToDictionary(z => z.Key.ToString()!, z => z.Value is IDictionary<object, object> t && t.TryGetValue("deleted", out var d) && d is true);
+                    yield return (record, result);
+                }
             }
 
             private static IEnumerable<TeamRecord> GetAllTeams(Request request, Lua lua)
@@ -179,6 +204,32 @@ namespace wotbot.Operations
                             {
                                 yield return new(team, v);
                             }
+                        }
+                    }
+                }
+            }
+
+            private static IEnumerable<(TeamRecord record, IDictionary<object, object> value)> ResolveTeamBasedData(LuaTable table, ImmutableHashSet<TeamRecord> teams)
+            {
+                foreach (var key in table.GetValidKeys())
+                {
+                    if (table[key] is not LuaTable guilds) continue;
+                    foreach (var guild in guilds.GetValidKeys())
+                    {
+                        if (guilds[guild] is not LuaTable data) continue;
+                        if (data.LuaTableToObject() is not IDictionary<object, object> dataDic) continue;
+
+                        foreach (var item in dataDic)
+                        {
+                            // these records will always be zero indexed
+                            // and always have a number
+                            if (item.Key is string s && !long.TryParse(s, out _)) throw new Exception("unexpected record found");
+                            var lookup = new TeamLookup(key.ToString()!, guild.ToString()!, item.Key.ToString()!);
+                            var team = teams.FirstOrDefault(z => z.TeamId == lookup.ToTeamId());
+                            if (team is null) continue;
+                            if (item.Value is not IDictionary<object, object> value) continue;
+
+                            yield return (team, value);
                         }
                     }
                 }

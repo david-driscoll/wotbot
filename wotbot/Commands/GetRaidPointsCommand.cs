@@ -82,16 +82,19 @@ namespace wotbot.Commands
                     await ReportList(ctx, null, null);
                     return;
                 }
+
                 if (Enum.TryParse<WarcraftRole>(name, true, out var role) || Enum.TryParse(name.TrimEnd('s'), true, out role))
                 {
                     await ReportList(ctx, role, null);
                     return;
                 }
+
                 if (Enum.TryParse<WarcraftClass>(name, true, out var cls) || Enum.TryParse(name.TrimEnd('s'), true, out cls))
                 {
                     await ReportList(ctx, null, cls);
                     return;
                 }
+
                 await ReportSingle(ctx, name);
             }
             catch (NotFoundException)
@@ -128,12 +131,13 @@ namespace wotbot.Commands
                 await commandContext.RespondAsync(msg);
             }
 
-            async Task ReportList(CommandContext commandContext, WarcraftRole? role, WarcraftClass? cls )
+            async Task ReportList(CommandContext commandContext, WarcraftRole? role, WarcraftClass? cls)
             {
                 var standings = await _executeScoped.Invoke((x, ct) => x.Send(new ListProfiles.Request(team)
                 {
                     Role = role,
-                    Class = cls
+                    Class = cls,
+                    IncludeDeleted = false
                 }, ct));
 
                 var title = "Standings";
@@ -147,9 +151,7 @@ namespace wotbot.Commands
                     title = $"{cls} Standings";
                 }
 
-                var embed = new DiscordEmbedBuilder().WithTitle(title).AddStandings(commandContext.Guild, standings);
-
-                var msg = new DiscordMessageBuilder().WithEmbed(embed);
+                var msg = new DiscordMessageBuilder().AddStandings(title, commandContext.Guild, standings, ImmutableArray<AttendanceRecord>.Empty);
                 await commandContext.RespondAsync(msg);
             }
         }
@@ -163,13 +165,15 @@ namespace wotbot.Commands
         private DiscordEmbedBuilder CreateProfileEmbed(PlayerProfile profile)
         {
             return new DiscordEmbedBuilder()
-                    // .WithTitle("WOT BOT")
-                    // .AddField("Rank", profile.Rank, false)
-                    .AddField("Lifetime", profile.LifetimePoints.ToString("D"), true)
-                    .AddField("Spent", profile.LifetimeSpent.ToString("D"), true)
-                    .WithColor(profile.GetClassColor())
-                    .WithFooter(profile.GetFullSpec(), iconUrl: $"https://wotbot.azurewebsites.net/spec/{profile.GetClassName().Dasherize().ToLowerInvariant()}/{profile.GetSpecName().Dasherize().ToLowerInvariant()}.png")
-                    .WithThumbnail($"https://wotbot.azurewebsites.net/anime/{profile.GetClassName().Dasherize().ToLowerInvariant()}.png");
+                // .WithTitle("WOT BOT")
+                // .AddField("Rank", profile.Rank, false)
+                .AddField("Lifetime", profile.LifetimePoints.ToString("D"), true)
+                .AddField("Spent", profile.LifetimeSpent.ToString("D"), true)
+                .WithColor(profile.GetClassColor())
+                .WithFooter(profile.GetFullSpec(),
+                    iconUrl:
+                    $"https://wotbot.azurewebsites.net/spec/{profile.GetClassName().Dasherize().ToLowerInvariant()}/{profile.GetSpecName().Dasherize().ToLowerInvariant()}.png")
+                .WithThumbnail($"https://wotbot.azurewebsites.net/anime/{profile.GetClassName().Dasherize().ToLowerInvariant()}.png");
         }
     }
 }

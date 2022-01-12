@@ -20,7 +20,8 @@ namespace wotbot.Models
         // [property: JsonPropertyName("rankName")]
         // string RankName,
         long Rank,
-        string Player
+        string Player,
+        bool Deleted
     )
     {
         public string GetSpecName()

@@ -22,6 +22,7 @@ namespace wotbot.Domain
         public long Rank { get; set; }
         public string Player { get; set; } = null!;
         public string PlayerLower { get; set; } = null!;
+        public bool Deleted { get; set; } = false;
 
         public override string PartitionKey
         {

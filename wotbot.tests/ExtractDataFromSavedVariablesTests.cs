@@ -53,6 +53,7 @@ namespace wotbot.tests
             team2.AwardedLoot.Should().HaveCount(2);
             team2.AwardedPoints.Should().HaveCount(8);
             team2.PlayerProfiles.Should().HaveCount(4);
+            team2.PlayerProfiles.Where(z => z.Deleted).Should().HaveCount(1);
         }
 
         public ExtractDataFromSavedVariablesTests(ITestOutputHelper outputHelper) : base(outputHelper, LogLevel.Trace)

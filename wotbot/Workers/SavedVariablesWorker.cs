@@ -7,12 +7,14 @@ using System.Linq;
 using System.Net.Http;
 using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Storage.Blobs.Models;
 using DSharpPlus;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
+using DSharpPlus.Exceptions;
 using Humanizer;
 using MediatR;
 using Microsoft.Extensions.Hosting;
@@ -132,7 +134,7 @@ namespace wotbot
                     await _executeScoped.Invoke(x => x.Send(new UploadTeams.Request(response.Keys.ToImmutableArray()), cancellationToken));
                     var results = await response
                         .ToAsyncEnumerable()
-                        .SelectAwaitWithCancellation(async (d, ct ) =>
+                        .SelectAwaitWithCancellation(async (d, ct) =>
                         {
                             var playerProfileUpload = _executeScoped.Invoke(x => x.Send(new UploadPlayerProfiles.Request(d.Key, d.Value.PlayerProfiles), ct));
                             var awardedPointsUpload = _executeScoped.Invoke(x => x.Send(new UploadAwardedPoints.Request(d.Key, d.Value.AwardedPoints), ct));
@@ -147,7 +149,7 @@ namespace wotbot
                     {
                         var totalLootRecords = results.Aggregate(0, (a, b) => b.newLoot.Length + a);
                         var totalAwardRecords = results.Aggregate(0, (a, b) => b.newPoints.Length + a);
-                        await data.Response.ModifyAsync(new DiscordMessageBuilder()
+                        var finalResponse = await data.Response.ModifyAsync(new DiscordMessageBuilder()
                             .WithEmbed(new DiscordEmbedBuilder()
                                 .AddField("Status", "Finished")
                                 .AddField("Updated Teams", response.Count.ToString(), false)
@@ -157,7 +159,7 @@ namespace wotbot
                             )
                         );
 
-                        if (data.Response?.Channel?.GuildId is { } guildId)
+                        if (data.Response.Channel?.GuildId is { } guildId)
                         {
                             var g = _discordClient.Guilds[guildId];
 
@@ -183,12 +185,10 @@ namespace wotbot
 
                             async IAsyncEnumerable<DiscordMessageBuilder> GetStandingsMessage(TeamRecord team)
                             {
-                                var standings = await _executeScoped.Invoke((x, ct) => x.Send(new ListProfiles.Request(team.TeamId), ct), cancellationToken);
+                                var standings = await _executeScoped.Invoke((x, ct) => x.Send(new ListProfiles.Request(team.TeamId) { IncludeDeleted = false}, ct), cancellationToken);
+                                var attendance = await _executeScoped.Invoke((x, ct) => x.Send(new GetAttendance.Request(team.TeamId) { IncludeDeleted = false }, ct), cancellationToken);
                                 yield return new DiscordMessageBuilder()
-                                    .WithEmbed(
-                                        new DiscordEmbedBuilder()
-                                            .WithTitle($"Standings {team.Name}")
-                                            .AddStandings(g, standings));
+                                    .AddStandings($"Standings {team.Name}", g, standings, attendance);
                             }
 
                             async IAsyncEnumerable<DiscordMessageBuilder> GetLootMessages(TeamRecord team, ImmutableArray<AwardedLoot> awardedLoots)
@@ -220,24 +220,47 @@ Items Won:
                                 }
                             }
 
+                            static async Task SendMessageAsync(DiscordChannel channel, DiscordMessageBuilder message, DiscordMessageBuilder finalResponseBuilder)
+                            {
+                                try
+                                {
+                                    await channel.SendMessageAsync(message);
+                                }
+                                catch (BadRequestException exception)
+                                {
+                                    finalResponseBuilder.AddEmbed(new DiscordEmbedBuilder().WithTitle("Bad Request:").AddField("Error", exception.JsonMessage));
+                                }
+                                catch (ServerErrorException exception)
+                                {
+                                    finalResponseBuilder.AddEmbed(new DiscordEmbedBuilder().WithTitle("Bad Request:").AddField("Error", exception.JsonMessage));
+                                }
+                            }
+
+                            var embedBuilder = new DiscordMessageBuilder()
+                                .AddEmbeds(finalResponse.Embeds);
+
                             foreach (var channel in reportChannels)
                             {
-                                await channel.SendMessageAsync(initialMessage);
+                                await SendMessageAsync(channel, initialMessage, embedBuilder);
                             }
+
                             if (lootMessages.Any() || standingMessages.Any())
                             {
                                 foreach (var channel in reportChannels)
                                 {
                                     foreach (var message in lootMessages)
                                     {
-                                        await channel.SendMessageAsync(message);
+                                        await SendMessageAsync(channel, message, embedBuilder);
                                     }
+
                                     foreach (var message in standingMessages)
                                     {
-                                        await channel.SendMessageAsync(message);
+                                        await SendMessageAsync(channel, message, embedBuilder);
                                     }
                                 }
                             }
+
+                            await data.Response.ModifyAsync(embedBuilder);
                         }
                     }
                 }
