@@ -42,7 +42,7 @@ namespace wotbot
             }
             public async Task<int> OnExecuteAsync()
             {
-                await _mediator.Send(new GetAttendance.Request("Old Blanchy-Horde-Wipes on Trash-0"));
+                await _mediator.Send(new GetAttendance.Request("Ashkandi-Horde-Report This-0"));
                 return 0;
             }
         }

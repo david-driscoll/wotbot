@@ -220,7 +220,7 @@ Items Won:
                                 }
                             }
 
-                            static async Task SendMessageAsync(DiscordChannel channel, DiscordMessageBuilder message, DiscordMessageBuilder finalResponseBuilder)
+                            static async Task SendMessageAsync(DiscordChannel channel, DiscordMessageBuilder message, DiscordMessageBuilder finalResponseBuilder, ILogger logger)
                             {
                                 try
                                 {
@@ -229,10 +229,12 @@ Items Won:
                                 catch (BadRequestException exception)
                                 {
                                     finalResponseBuilder.AddEmbed(new DiscordEmbedBuilder().WithTitle("Bad Request:").AddField("Error", exception.JsonMessage));
+                                    logger.LogError(exception, "Bad Request: {JsonMessage}", exception.JsonMessage);
                                 }
                                 catch (ServerErrorException exception)
                                 {
-                                    finalResponseBuilder.AddEmbed(new DiscordEmbedBuilder().WithTitle("Bad Request:").AddField("Error", exception.JsonMessage));
+                                    finalResponseBuilder.AddEmbed(new DiscordEmbedBuilder().WithTitle("Server Error:").AddField("Error", exception.JsonMessage));
+                                    logger.LogError(exception, "Server Error: {JsonMessage}", exception.JsonMessage);
                                 }
                             }
 
@@ -241,7 +243,7 @@ Items Won:
 
                             foreach (var channel in reportChannels)
                             {
-                                await SendMessageAsync(channel, initialMessage, embedBuilder);
+                                await SendMessageAsync(channel, initialMessage, embedBuilder, _logger);
                             }
 
                             if (lootMessages.Any() || standingMessages.Any())
@@ -250,12 +252,12 @@ Items Won:
                                 {
                                     foreach (var message in lootMessages)
                                     {
-                                        await SendMessageAsync(channel, message, embedBuilder);
+                                        await SendMessageAsync(channel, message, embedBuilder, _logger);
                                     }
 
                                     foreach (var message in standingMessages)
                                     {
-                                        await SendMessageAsync(channel, message, embedBuilder);
+                                        await SendMessageAsync(channel, message, embedBuilder, _logger);
                                     }
                                 }
                             }

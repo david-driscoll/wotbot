@@ -45,8 +45,8 @@ namespace wotbot.tests
             var result = await ServiceProvider.GetRequiredService<IMediator>().Send(new ExtractDataFromSavedVariables.Request("MyContainer", "MyBlob"));
 
             result.Should().HaveCount(2);
-            var team1 = result.First(z => z.Key.TeamId == "Old Blanchy-Horde-Wipes on Trash-0").Value;
-            var team2 = result.First(z => z.Key.TeamId == "Old Blanchy-Horde-Wipes on Trash-1").Value;
+            var team1 = result.First(z => z.Key.TeamId == "Ashkandi-Horde-Report This-0").Value;
+            var team2 = result.First(z => z.Key.TeamId == "Ashkandi-Horde-Report This-1").Value;
             team1.AwardedLoot.Should().HaveCount(0);
             team1.AwardedPoints.Should().HaveCount(0);
             team1.PlayerProfiles.Should().HaveCount(0);

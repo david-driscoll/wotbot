@@ -1,7 +1,7 @@
 
 CommDKP_DB = {
-	["Old Blanchy-Horde"] = {
-		["Wipes on Trash"] = {
+	["Ashkandi-Horde"] = {
+		["Report This"] = {
 			["bidpos"] = {
 				["y"] = 50.1481590270996,
 				["x"] = 271.555572509766,
@@ -70,11 +70,11 @@ CommDKP_DB = {
 			},
 			["teams"] = {
 				["0"] = {
-					["name"] = "Wipes on Trash",
+					["name"] = "Report This",
 					["index"] = 0,
 				},
 				["1"] = {
-					["name"] = "Wipes on Trash TEST",
+					["name"] = "Report This TEST",
 					["index"] = 1,
 				},
 			},
@@ -174,10 +174,10 @@ CommDKP_DB = {
 		},
 		["teams"] = {
 			["0"] = {
-				["name"] = "Wipes on Trash",
+				["name"] = "Report This",
 			},
 			["1"] = {
-				["name"] = "Wipes on Trash TEST",
+				["name"] = "Report This TEST",
 			},
 		},
 		["modes"] = {
@@ -278,8 +278,8 @@ CommDKP_DB = {
 	},
 }
 CommDKP_Loot = {
-	["Old Blanchy-Horde"] = {
-		["Wipes on Trash"] = {
+	["Ashkandi-Horde"] = {
+		["Report This"] = {
 			["0"] = {
 			},
 			["1"] = {
@@ -323,8 +323,8 @@ CommDKP_Loot = {
 	},
 }
 CommDKP_DKPTable = {
-	["Old Blanchy-Horde"] = {
-		["Wipes on Trash"] = {
+	["Ashkandi-Horde"] = {
+		["Report This"] = {
 			["0"] = {
 			},
 			["1"] = {
@@ -393,8 +393,8 @@ CommDKP_DKPTable = {
 	},
 }
 CommDKP_DKPHistory = {
-	["Old Blanchy-Horde"] = {
-		["Wipes on Trash"] = {
+	["Ashkandi-Horde"] = {
+		["Report This"] = {
 			["0"] = {
 			},
 			["1"] = {
@@ -426,8 +426,8 @@ CommDKP_DKPHistory = {
 	},
 }
 CommDKP_MinBids = {
-	["Old Blanchy-Horde"] = {
-		["Wipes on Trash"] = {
+	["Ashkandi-Horde"] = {
+		["Report This"] = {
 			["0"] = {
 			},
 			["1"] = {
@@ -446,8 +446,8 @@ CommDKP_MinBids = {
 	},
 }
 CommDKP_MaxBids = {
-	["Old Blanchy-Horde"] = {
-		["Wipes on Trash"] = {
+	["Ashkandi-Horde"] = {
+		["Report This"] = {
 			["0"] = {
 			},
 			["1"] = {
@@ -464,8 +464,8 @@ CommDKP_MaxBids = {
 	},
 }
 CommDKP_Whitelist = {
-	["Old Blanchy-Horde"] = {
-		["Wipes on Trash"] = {
+	["Ashkandi-Horde"] = {
+		["Report This"] = {
 		},
 	},
 	["__default"] = {
@@ -478,8 +478,8 @@ CommDKP_Whitelist = {
 	},
 }
 CommDKP_Standby = {
-	["Old Blanchy-Horde"] = {
-		["Wipes on Trash"] = {
+	["Ashkandi-Horde"] = {
+		["Report This"] = {
 			["0"] = {
 			},
 			["1"] = {
@@ -496,8 +496,8 @@ CommDKP_Standby = {
 	},
 }
 CommDKP_Archive = {
-	["Old Blanchy-Horde"] = {
-		["Wipes on Trash"] = {
+	["Ashkandi-Horde"] = {
+		["Report This"] = {
 			["0"] = {
 			},
 			["1"] = {
@@ -517,8 +517,8 @@ CommDKP_Archive = {
 	},
 }
 CommDKP_Profiles = {
-	["Old Blanchy-Horde"] = {
-		["Wipes on Trash"] = {
+	["Ashkandi-Horde"] = {
+		["Report This"] = {
 			["1"] = {
 				["Annebonelyn"] = {
 					["previous_dkp"] = 0,
