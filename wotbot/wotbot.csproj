@@ -9,10 +9,10 @@
     <ItemGroup>
         <PackageReference Include="Azure.Data.Tables" Version="12.3.0" />
         <PackageReference Include="Azure.Storage.Blobs" Version="12.10.0" />
-        <PackageReference Include="DSharpPlus" Version="4.1.0" />
-        <PackageReference Include="DSharpPlus.CommandsNext" Version="4.1.0" />
-        <PackageReference Include="DSharpPlus.Interactivity" Version="4.1.0" />
-        <PackageReference Include="DSharpPlus.Rest" Version="4.1.0" />
+        <PackageReference Include="DSharpPlus" Version="4.2.0" />
+        <PackageReference Include="DSharpPlus.CommandsNext" Version="4.2.0" />
+        <PackageReference Include="DSharpPlus.Interactivity" Version="4.2.0" />
+        <PackageReference Include="DSharpPlus.Rest" Version="4.2.0" />
         <PackageReference Include="Humanizer.Core" Version="2.13.14" />
         <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.19.0" />
         <PackageReference Include="Microsoft.ApplicationInsights.Profiler.AspNetCore" Version="2.3.0" />
