@@ -70,6 +70,7 @@ namespace wotbot.Operations
 
                             return result;
                         })
+                        .DistinctBy(z => z.RowKey)
                         .ToArray();
 
                 var transactions = new List<List<TableTransactionAction>>
