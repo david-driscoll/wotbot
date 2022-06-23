@@ -70,23 +70,30 @@ namespace wotbot.Operations
                         })
                         .ToArray();
 
-                var transactions = new List<List<TableTransactionAction>>();
-                transactions.Add(new (existingProfiles.Keys
-                    .Except(profiles.Select(z => z.RowKey))
-                    .Select(profile =>
-                    {
-                        existingProfiles[profile].Deleted = true;
-                        return new TableTransactionAction(TableTransactionActionType.UpsertReplace, existingProfiles[profile]);
-                    })
-                ));
-                transactions.Add(new (profiles
-                    .Select(profile => new TableTransactionAction(TableTransactionActionType.UpsertReplace, profile))
-                    .ToArray()
-                ));
-                if (!transactions.Any()) return Unit.Value;
+                var transactions = new List<List<TableTransactionAction>>
+                {
+                    new (existingProfiles.Keys
+                        .Except(profiles.Select(z => z.RowKey))
+                        .Select(profile =>
+                        {
+                            existingProfiles[profile].Deleted = true;
+                            return new TableTransactionAction(TableTransactionActionType.UpsertReplace, existingProfiles[profile]);
+                        })
+                    ),
+                    new (profiles
+                        .Select(profile => new TableTransactionAction(TableTransactionActionType.UpsertReplace, profile))
+                        .ToArray()
+                    )
+                };
 
-                foreach (var buffer in transactions.SelectMany(transaction => transaction.Buffer(100)))
-                    await tableClient.SubmitTransactionAsync(buffer, cancellationToken);
+                foreach (var transaction in transactions)
+                {
+                    if (!transaction.Any()) continue;
+                    foreach (var buffer in transaction.Buffer(100))
+                    {
+                        await tableClient.SubmitTransactionAsync(buffer, cancellationToken);
+                    }
+                }
 
                 return Unit.Value;
             }
