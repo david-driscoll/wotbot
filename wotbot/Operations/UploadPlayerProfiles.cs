@@ -53,7 +53,8 @@ namespace wotbot.Operations
                 var tableClient = _tableClientFactory.CreateClient(Constants.ProfilesTable);
                 await tableClient.CreateIfNotExistsAsync(cancellationToken);
 
-                var existingProfiles = await tableClient.QueryAsync<PlayerProfileTableEntity>($"(PartitionKey eq '{request.Team.TeamId}')")
+                var existingProfiles = await tableClient
+                    .QueryAsync<PlayerProfileTableEntity>($"(PartitionKey eq '{request.Team.TeamId}')")
                     .ToDictionaryAsync(z => z.RowKey, cancellationToken);
 
                 var profiles =
@@ -66,33 +67,35 @@ namespace wotbot.Operations
                             {
                                 result.Deleted = existingProfile.Deleted;
                             }
+
                             return result;
                         })
                         .ToArray();
 
                 var transactions = new List<List<TableTransactionAction>>
                 {
-                    new (existingProfiles.Keys
+                    new(existingProfiles.Keys
                         .Except(profiles.Select(z => z.RowKey))
                         .Select(profile =>
                         {
                             existingProfiles[profile].Deleted = true;
-                            return new TableTransactionAction(TableTransactionActionType.UpsertReplace, existingProfiles[profile]);
+                            return new TableTransactionAction(TableTransactionActionType.UpsertReplace,
+                                existingProfiles[profile]);
                         })
                     ),
-                    new (profiles
-                        .Select(profile => new TableTransactionAction(TableTransactionActionType.UpsertReplace, profile))
+                    new(profiles
+                        .Select(profile =>
+                            new TableTransactionAction(TableTransactionActionType.UpsertReplace, profile))
                         .ToArray()
                     )
                 };
 
-                foreach (var transaction in transactions)
+                foreach (var buffer in transactions
+                             .Where(transaction => transaction.Any())
+                             .SelectMany(transaction => transaction.Buffer(100))
+                        )
                 {
-                    if (!transaction.Any()) continue;
-                    foreach (var buffer in transaction.Buffer(100))
-                    {
-                        await tableClient.SubmitTransactionAsync(buffer, cancellationToken);
-                    }
+                    await tableClient.SubmitTransactionAsync(buffer, cancellationToken);
                 }
 
                 return Unit.Value;
