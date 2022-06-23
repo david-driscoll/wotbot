@@ -53,7 +53,6 @@ namespace wotbot.Operations
                 var tableClient = _tableClientFactory.CreateClient(Constants.ProfilesTable);
                 await tableClient.CreateIfNotExistsAsync(cancellationToken);
 
-                var transactions = new List<TableTransactionAction>();
                 var existingProfiles = await tableClient.QueryAsync<PlayerProfileTableEntity>($"(PartitionKey eq '{request.Team.TeamId}')")
                     .ToDictionaryAsync(z => z.RowKey, cancellationToken);
 
@@ -71,24 +70,23 @@ namespace wotbot.Operations
                         })
                         .ToArray();
 
-                transactions.AddRange(existingProfiles.Keys
+                var transactions = new List<List<TableTransactionAction>>();
+                transactions.Add(new (existingProfiles.Keys
                     .Except(profiles.Select(z => z.RowKey))
                     .Select(profile =>
                     {
                         existingProfiles[profile].Deleted = true;
                         return new TableTransactionAction(TableTransactionActionType.UpsertReplace, existingProfiles[profile]);
                     })
-                );
-                transactions.AddRange(profiles
+                ));
+                transactions.Add(new (profiles
                     .Select(profile => new TableTransactionAction(TableTransactionActionType.UpsertReplace, profile))
                     .ToArray()
-                );
+                ));
                 if (!transactions.Any()) return Unit.Value;
 
-                foreach (var buffer in transactions.Buffer(100))
-                {
+                foreach (var buffer in transactions.SelectMany(transaction => transaction.Buffer(100)))
                     await tableClient.SubmitTransactionAsync(buffer, cancellationToken);
-                }
 
                 return Unit.Value;
             }
